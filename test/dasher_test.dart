@@ -299,6 +299,134 @@ void main() {
     });
   });
 
+  group('contorno fechado que retrocede sobre si mesmo', () {
+    // `m p0; l p1; h` e ida e volta pelo mesmo segmento, e e o que o PyMuPDF
+    // emite em toda linha. O padrao corre pelos dois sentidos, entao tracos da
+    // ida caem sobre tracos da volta; o resultado tem de ser a uniao deles.
+
+    /// Fracao do segmento coberta pela uniao das duas passagens.
+    ///
+    /// Oraculo independente do dasher: um ponto do segmento esta pintado se a
+    /// passagem de ida OU a de volta cai num traco naquele ponto. A ida chega
+    /// nele com parametro `t * len` e a volta com `2 * len - t * len`. Nao
+    /// reaproveita nada da implementacao.
+    double coveredFraction(double len, List<double> pattern, double offset) {
+      final period = pattern.fold<double>(0, (a, b) => a + b);
+      bool inDash(double s) {
+        var phase = (s + offset) % period;
+        var index = 0;
+        while (phase >= pattern[index]) {
+          phase -= pattern[index];
+          index = (index + 1) % pattern.length;
+        }
+        return index.isEven;
+      }
+
+      const steps = 400000;
+      var covered = 0;
+      for (var i = 0; i < steps; i++) {
+        final t = (i + 0.5) / steps * len;
+        if (inDash(t) || inDash(2 * len - t)) covered++;
+      }
+      return covered / steps;
+    }
+
+    /// Intervalos do parametro ocupados por cada contorno da saida.
+    List<List<double>> spansOf(BLPath path, double x0, double x1) {
+      final data = path.toPathData();
+      final verts = data.vertices;
+      final counts = data.contourVertexCounts ?? [verts.length ~/ 2];
+      final out = <List<double>>[];
+      var offset = 0;
+      for (final n in counts) {
+        var lo = double.infinity, hi = double.negativeInfinity;
+        for (var k = 0; k < n; k++) {
+          final t = (verts[(offset + k) * 2] - x0) / (x1 - x0);
+          if (t < lo) lo = t;
+          if (t > hi) hi = t;
+        }
+        out.add(<double>[lo, hi]);
+        offset += n;
+      }
+      out.sort((a, b) => a[0].compareTo(b[0]));
+      return out;
+    }
+
+    test('os tracos da saida nao se sobrepoem', () {
+      for (final pattern in [
+        const [6.0, 3.0],
+        const [1.0, 2.0],
+        const [7.0, 4.0, 2.0, 4.0],
+      ]) {
+        for (final offset in [0.0, 2.5]) {
+          final path = BLPath()
+            ..moveTo(10, 10)
+            ..lineTo(110, 10)
+            ..close();
+          final dashed =
+              BLDasher.dashPath(path, pattern, dashOffset: offset);
+          final spans = spansOf(dashed, 10, 110);
+          for (var i = 1; i < spans.length; i++) {
+            expect(spans[i][0], greaterThanOrEqualTo(spans[i - 1][1] - 1e-9),
+                reason: 'padrao $pattern deslocamento $offset: o traco '
+                    '${spans[i]} invade ${spans[i - 1]}');
+          }
+        }
+      }
+    });
+
+    test('o comprimento tracado e o da uniao, nao a soma das duas passagens',
+        () {
+      const pattern = [6.0, 3.0];
+      final path = BLPath()
+        ..moveTo(10, 10)
+        ..lineTo(110, 10)
+        ..close();
+      final dashed = BLDasher.dashPath(path, pattern);
+
+      // A soma das duas passagens seria 2 * 100 * 6/9 = 133,3, maior que o
+      // proprio segmento: e a medida da sobreposicao. A uniao cabe nos 100 e
+      // e o oraculo por forca bruta que diz quanto.
+      final esperado = coveredFraction(100, pattern, 0) * 100;
+      expect(_totalLength(dashed), closeTo(esperado, 0.05));
+      expect(_totalLength(dashed), lessThan(100.0001));
+    });
+
+    test('a tinta no raster e a do comprimento tracado, sem borda saturada',
+        () async {
+      const pattern = [6.0, 3.0];
+      const width = 3.0;
+      final path = BLPath()
+        ..moveTo(10, 20)
+        ..lineTo(110, 20)
+        ..close();
+      final dashed = BLDasher.dashPath(path, pattern);
+
+      final image = BLImage(130, 40);
+      final ctx = BLContext(image)..clear(0xFF000000);
+      await ctx.strokeDashedPath(
+        path,
+        dashArray: pattern,
+        color: 0xFFFFFFFF,
+        options: const BLStrokeOptions(width: width),
+      );
+      ctx.flush();
+
+      var ink = 0.0;
+      for (var i = 0; i < image.pixels.length; i++) {
+        ink += ((image.pixels[i] >>> 16) & 0xFF) / 255.0;
+      }
+      await ctx.dispose();
+
+      // Se a ida e a volta fossem tracadas sobrepostas, o rasterizador
+      // analitico somaria as coberturas parciais das bordas e cortaria em 1,
+      // e a tinta passaria do comprimento vezes a largura. Este numero e o
+      // que o MuPDF e o Marlin dao, porque os dois emitem um unico span de
+      // onde o winding sai de zero ate onde volta.
+      expect(ink, closeTo(_totalLength(dashed) * width, 2.0));
+    });
+  });
+
   group('BLDasher through BLContext', () {
     test('a dashed rectangle paints all four sides', () async {
       final image = BLImage(120, 70);

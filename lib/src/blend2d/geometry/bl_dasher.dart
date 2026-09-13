@@ -211,6 +211,30 @@ class BLDasher {
 
     if (runs.isEmpty) return;
 
+    // Um contorno fechado de dois vértices retrocede sobre si mesmo: `m p0;
+    // l p1; h` é ida e volta pelo mesmo segmento, e é o que o PyMuPDF emite
+    // em toda linha. O padrão corre pelos dois sentidos — a ISO 32000-1
+    // 8.4.3.6 manda percorrer o caminho inteiro, e o MuPDF faz isso também —
+    // então traços da ida caem sobre traços da volta.
+    //
+    // Pintar a sobreposição duas vezes não muda a região coberta, mas muda o
+    // que o rasterizador analítico calcula: ele integra o winding sobre o
+    // pixel e corta em 1, em vez de integrar [winding != 0]. Num pixel de
+    // borda coberto pela metade por dois traços, isso dá 0,5 + 0,5 = 1,0 onde
+    // a verdade é 0,5, e a borda sai opaca. Os rasterizadores de varredura
+    // não têm o problema porque emitem um único span de onde o winding sai de
+    // zero até onde volta — `non_zero_winding_aa` em `draw-edge.c` do MuPDF e
+    // o ramo não-zero de `Renderer.java` no Marlin são a mesma estrutura.
+    //
+    // Em vez de mudar de rasterizador, tira-se a causa: os traços deste caso
+    // vivem todos sobre uma reta, então viram intervalos em um parâmetro e a
+    // união é exata. Sem sobreposição, qualquer rasterizador acerta.
+    if (closed && count == 2) {
+      _emitMergedRetrace(out, runs, verts[start * 2], verts[start * 2 + 1],
+          verts[(start + 1) * 2], verts[(start + 1) * 2 + 1]);
+      return;
+    }
+
     // Fechado e com traço encostando nas duas pontas: o último traço e o
     // primeiro são o mesmo traço, visto que ambos tocam p[0]. Fundir evita
     // dois caps onde deveria haver um join.
@@ -243,6 +267,77 @@ class BLDasher {
           run.lastY == run.firstY) {
         out.close();
       }
+    }
+  }
+
+  /// Une os traços de um contorno fechado que retrocede sobre si mesmo e os
+  /// emite sem sobreposição.
+  ///
+  /// Todos os traços estão sobre a reta que vai de (`x0`,`y0`) a (`x1`,`y1`),
+  /// então cada um é um intervalo do parâmetro `t` dessa reta e a união é uma
+  /// fusão de intervalos ordenados. Unir antes de traçar preserva a região
+  /// pintada: dois traços que se sobrepõem e cujas pontas levam cap `round` ou
+  /// `square` cobrem exatamente o mesmo que o intervalo unido com o cap nas
+  /// pontas de fora, porque o cap interno cai dentro da união.
+  static void _emitMergedRetrace(BLPath out, List<_DashRun> runs, double x0,
+      double y0, double x1, double y1) {
+    final dx = x1 - x0, dy = y1 - y0;
+    final lenSq = dx * dx + dy * dy;
+    if (lenSq < 1e-24) return;
+    double paramOf(double x, double y) =>
+        ((x - x0) * dx + (y - y0) * dy) / lenSq;
+
+    final spans = <List<double>>[];
+    final dots = <_DashRun>[];
+    for (final run in runs) {
+      if (run.vertexCount < 2) {
+        dots.add(run);
+        continue;
+      }
+      // Varre TODOS os vértices, não só as pontas: o traço que atravessa p1
+      // dá a volta ali e volta pelo mesmo lado, então é um "V" cujas pontas
+      // ficam ambas aquém do vértice. Olhar só primeiro e último perderia
+      // justamente o trecho até p1.
+      var lo = double.infinity, hi = double.negativeInfinity;
+      for (var k = 0; k < run.vertexCount; k++) {
+        final t = paramOf(run.points[k * 2], run.points[k * 2 + 1]);
+        if (t < lo) lo = t;
+        if (t > hi) hi = t;
+      }
+      if (hi - lo <= 1e-12) {
+        dots.add(run);
+        continue;
+      }
+      spans.add(<double>[lo, hi]);
+    }
+
+    spans.sort((a, b) => a[0].compareTo(b[0]));
+    final merged = <List<double>>[];
+    for (final span in spans) {
+      if (merged.isNotEmpty && span[0] <= merged.last[1] + 1e-12) {
+        if (span[1] > merged.last[1]) merged.last[1] = span[1];
+      } else {
+        merged.add(span);
+      }
+    }
+
+    for (final span in merged) {
+      out.moveTo(x0 + dx * span[0], y0 + dy * span[0]);
+      out.lineTo(x0 + dx * span[1], y0 + dy * span[1]);
+    }
+
+    // Um ponto do padrão que caia dentro de um traço já pintado não acrescenta
+    // nada e só traria de volta a sobreposição que acabamos de desfazer.
+    for (final dot in dots) {
+      final t = paramOf(dot.firstX, dot.firstY);
+      var covered = false;
+      for (final span in merged) {
+        if (t >= span[0] - 1e-12 && t <= span[1] + 1e-12) {
+          covered = true;
+          break;
+        }
+      }
+      if (!covered) _emitDot(out, dot);
     }
   }
 
