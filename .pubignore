@@ -1,9 +1,30 @@
-# O pacote publicado contém apenas o motor gráfico (`lib/src/blend2d/`) e seus
-# pontos de entrada. Tudo abaixo é material de desenvolvimento: fica no
-# repositório, mas não faz sentido baixar junto com a dependência.
+# O que o consumidor baixa
+# =========================
+#
+# O pacote publicado carrega só o que é preciso para usar a biblioteca e para
+# saber sob que termos: README, LICENSE, NOTICE, CHANGELOG, pubspec, `lib/` e
+# `example/`. Todo o resto do repositório é material de desenvolvimento — fica
+# versionado aqui, mas não faz sentido baixar junto com a dependência, e no
+# caso de `third_party/` não PODE ser baixado junto.
+#
+# (`pub` já exclui sozinho o que começa com ponto: `.git/`, `.github/`,
+# `.dart_tool/`, `.githooks/`, `.gitignore`. Não é preciso repeti-los.)
 
-# Fontes de referência em C/C++/Java estudadas durante o port, notas de
-# pesquisa e roteiros de implementação.
+# --- Testes e ferramentas ---------------------------------------------------
+# A suíte roda no CI e no clone, não na máquina de quem consome o pacote.
+# Parte dela ainda importa `research/` e `third_party/`, que não viajam: dentro
+# do arquivo publicado esses imports ficariam quebrados.
+test/
+tool/
+benchmark/
+
+# --- Convenções e configuração do repositório -------------------------------
+AGENTS.md
+analysis_options.yaml
+
+# --- Pesquisa, referência e roteiros ----------------------------------------
+# Fontes em C/C++/Java estudadas durante o port, papers, notas e roteiros de
+# implementação.
 referencias/
 pesquisa/
 ROTEIRO_PORT_BLEND2D_DART.md
@@ -11,33 +32,22 @@ ROTEIRO_PROFISSIONAL_SVG_RENDERING.md
 roteiro_scanline_edge_flag.md
 doc.md
 
-# Saídas de benchmark, imagens de comparação visual e ativos de teste.
+# --- Saídas geradas ---------------------------------------------------------
 output/
 assets/
+build/
+doc/api/
 *.ppm
 
-# Harness de benchmark e geradores de tabela.
-benchmark/
-tool/
-
-# Rasterizadores experimentais, parser SVG e escritor PNG. São ~83 mil linhas
-# (só `epl_aa_tables.dart` tem 65 mil de tabela gerada) que não fazem parte da
-# biblioteca: ficam fora de `lib/` justamente para que `lib/` contenha apenas o
-# que é entregue.
+# --- Rasterizadores experimentais, parser SVG e escritor PNG ----------------
+# São ~83 mil linhas (só `epl_aa_tables.dart` tem 65 mil de tabela gerada) que
+# não fazem parte da biblioteca: ficam fora de `lib/` justamente para que
+# `lib/` contenha apenas o que é entregue.
 research/
 
-# Testes dos rasterizadores de pesquisa: exercitam código que fica fora do
-# pacote, então publicá-los deixaria imports quebrados dentro do arquivo.
-test/edge_flag_test.dart
-test/edge_flag_expanded_test.dart
-
+# --- Código sob outra licença -----------------------------------------------
 # Port do Marlin renderer do OpenJDK: GPLv2 + Classpath Exception, licenciado
 # separadamente no próprio diretório. Nunca pode entrar no pacote MIT.
+# `test/architecture/mit_boundary_test.dart` verifica que esta linha continua
+# aqui.
 third_party/
-test/goldens_cross_check_test.dart
-
-# Verifica a higiene de licença do REPOSITÓRIO (que `lib/` não referencia
-# `third_party/`, que os cabeçalhos da Oracle estão intactos). Dentro do
-# pacote publicado não há `third_party/` para inspecionar, então lá ele
-# falharia por ausência do que justamente não deve estar presente.
-test/architecture/mit_boundary_test.dart

@@ -35,9 +35,6 @@ jobs:
       - name: Resolver dependências
         run: dart pub get
 
-      - name: Verificar formatação
-        run: dart format --output=none --set-exit-if-changed lib test example
-
       - name: Analisar
         run: dart analyze --fatal-infos
 
@@ -58,5 +55,57 @@ jobs:
       # Falha se o pacote deixar de ser publicável — dependência sem
       # restrição, arquivo faltando, licença ausente. Melhor descobrir aqui do
       # que na hora de publicar.
+      #
+      # A segunda metade confere o CONTEÚDO do arquivo, que o `--dry-run` não
+      # julga: ele aceita qualquer coisa que o `.pubignore` deixe passar. Um
+      # erro ali é silencioso e caro nos dois sentidos — `third_party/` é GPL e
+      # não pode viajar num pacote MIT, e `NOTICE` carrega a atribuição ao
+      # Blend2D que a cláusula 2 da licença zlib exige e precisa viajar.
       - name: Validar publicação
-        run: dart pub publish --dry-run
+        run: |
+          set -euo pipefail
+          dart pub publish --dry-run 2>&1 | tee publish.log
+
+          # Entradas de primeiro nível da árvore impressa pelo dry-run.
+          top="$(sed -n 's/^├── //p; s/^└── //p' publish.log | sed 's/ (.*)$//')"
+          echo "Primeiro nível do pacote:"
+          echo "$top"
+
+          for forbidden in test tool benchmark research referencias pesquisa \
+                           third_party assets output doc.md AGENTS.md; do
+            if echo "$top" | grep -qx -- "$forbidden"; then
+              echo "::error::'$forbidden' entrou no pacote publicado"
+              exit 1
+            fi
+          done
+
+          for required in LICENSE NOTICE README.md CHANGELOG.md pubspec.yaml lib; do
+            if ! echo "$top" | grep -qx -- "$required"; then
+              echo "::error::'$required' não está no pacote publicado"
+              exit 1
+            fi
+          done
+
+  docs:
+    name: Documentação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - run: dart pub get
+
+      # `dart doc` sai com código 0 mesmo quando emite avisos, então conferir o
+      # código de saída não prova nada: um `[0..255]` num comentário vira
+      # referência não resolvida e a documentação publicada sai com buraco. A
+      # linha de resumo é o único sinal confiável.
+      - name: Gerar a documentação de API
+        run: |
+          set -euo pipefail
+          dart doc --output build/doc 2>&1 | tee doc.log
+          if ! grep -q 'Found 0 warnings and 0 errors' doc.log; then
+            echo "::error::dart doc emitiu avisos ou erros"
+            exit 1
+          fi

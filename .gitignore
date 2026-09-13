@@ -1,10 +1,20 @@
 .dart_tool/
+
+# Pacote de biblioteca: o lock não é versionado, para que a resolução seja a do
+# consumidor e não a desta máquina.
 pubspec.lock
+
+# Árvores de código de referência (Blend2D, Cairo, FreeType, Skia, OpenJDK...)
+# baixadas para estudo durante o port. São de terceiros, cada uma sob a sua
+# própria licença, e não pertencem a este repositório. Veja NOTICE.
 referencias/
 
 tmp/
 
+# Saída de `dart doc`.
+doc/api/
+build/
+
 # Dumps de inspeção visual gerados pelos benchmarks.
 *.ppm
 output/
-
