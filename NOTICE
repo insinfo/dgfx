@@ -21,7 +21,7 @@ in section 1 below.
 The package published to pub.dev contains only LICENSE, NOTICE, README.md,
 CHANGELOG.md, pubspec.yaml, `lib/` and `example/` — all of it MIT, all of it
 written for this project. The GPLv2 code under `third_party/` and every other
-third-party file listed in section 2 exist only in the source repository and
+third-party file listed in section 2 are versioned in the source repository and
 never reach the published archive.
 
 ================================================================================
@@ -150,45 +150,14 @@ reachable from `package:dgfx/dgfx.dart`.
     `research/svg/`, are this project's own implementations of the ideas
     described in `pesquisa/`.
 
-2.3 pesquisa/ — design notes, and third-party texts no longer versioned
+2.3 pesquisa/ — this project's own design notes
 --------------------------------------------------------------------------------
 
-`pesquisa/*.md` holds this project's own design and research notes — the
-rasterization approaches studied and sketched for dgfx. They are this
-project's work, they are versioned, and they are not published.
-
-`pesquisa/news/` held full copies of third-party articles, specifications and
-blog posts, each under its authors' or publishers' copyright, none of them
-licensed for redistribution. **That directory was removed from version control
-and added to `.gitignore`.** It is no longer in any new commit and is not
-published; it survives only on a development machine, the same as
-`referencias/` in section 2.5. Redistributing the full text of copyrighted
-articles in a public repository is redistribution without permission, and the
-only advantage over a link is reading offline.
-
-The works that were there, kept as a bibliography:
-
-  - "Scanline edge-flag algorithm for antialiasing" — Kiia Kallio,
-    Eurographics / EG UK Theory and Practice of Computer Graphics, 2007.
-  - "Wavelet Rasterization" — Manson & Schaefer, Eurographics 2011.
-  - "Accelerated Half-Space Triangle Rasterization" — Mileff, Nehéz & Dudra,
-    Acta Polytechnica Hungarica, 2015.
-  - "Masked Software Occlusion Culling" — preprint, High Performance Graphics
-    2016.
-  - "Optimizing the basic rasterizer" and "Triangle rasterization in practice"
-    — Fabian Giesen (the ryg blog).
-  - "Know your FPU: Fixing Floating Fast" — Sree Kotay, 2006.
-  - "Culling occluded geometry using the visibility result buffer" — Apple
-    developer documentation.
-  - "Scalable Vector Graphics (SVG) Tiny 1.2 Specification" and "Conformance
-    Criteria — SVG 2" (HTML and supporting files) — W3C, under the W3C
-    Document License.
-  - MathJax, Copyright (c) 2009-2017 The MathJax Consortium, Apache 2.0,
-    downloaded together with the W3C page above.
-
-Note that the commits made before the directory was ignored still carry those
-files in history. Removing them from history would need a rewrite; keeping them
-out of every future commit is what was done.
+`pesquisa/*.md` holds this project's own design and research notes: the
+rasterization approaches studied and sketched for dgfx. They are this project's
+work, they are versioned, and they are not published. They need no third-party
+attribution, and are listed here only so the inventory accounts for every
+versioned directory.
 
 2.4 assets/ — images used in benchmarks and visual comparison
 --------------------------------------------------------------------------------
@@ -204,53 +173,12 @@ None is published in the package. Unconfirmed provenance is a reason not to
 publish, not a reason to delete; if they are ever used outside the repository,
 they should be replaced with material of declared origin.
 
-2.5 referencias/ — third-party source trees (not versioned)
---------------------------------------------------------------------------------
+BEWARE OF COPYLEFT: `third_party/marlin_openjdk/` is GPL 2, and any line of it
+copied into `lib/` would make the MIT licence declared in `pubspec.yaml` false.
+The same holds for anything else copyleft that a study of other engines might
+bring in. Today that does not happen, and that is what
+`test/architecture/mit_boundary_test.dart` exists to keep proving.
 
-This directory is in `.gitignore`: it is not versioned, is in no commit and is
-not published. It exists only on a development machine, holding the original
-source code studied during the port. It is recorded here because the origin of
-the study matters to the licence of the result.
-
-    agg-2.6-cpp          Anti-Grain Geometry, Maxim Shemanarev — dual licence:
-                         modified BSD or the Anti-Grain Geometry Public
-                         License, at your option. But `agg-src/gpc/` carries
-                         the General Polygon Clipper, (C) 1997-1999 University
-                         of Manchester, "free for NON-COMMERCIAL use" — NOT
-                         FREE SOFTWARE, and commercial use needs the author's
-                         consent.
-    blend2d-master       zlib — the origin of this port. See section 1.
-    cairo-master         LGPL 2.1 or MPL 1.1, at your option — WEAK COPYLEFT.
-    font-rs-master       Apache 2.0.
-    freetype-go          FreeType License or GPL 2, at your option.
-    freetype-master      FreeType License or GPL 2, at your option.
-    harfbuzz-main        "Old MIT".
-    image-master         3-clause BSD (The Go Authors).
-    jdk-master,          GPL 2 with Classpath Exception — COPYLEFT.
-    jdk-a7f731125b7f     The origin of the port in `third_party/marlin_openjdk/`.
-    kb-main              zlib, (C) 2024-2025 Jimmy Lefevre.
-    libart_lgpl-master   LGPL 2 — WEAK COPYLEFT.
-    marlin-renderer      GPL 2 with Classpath Exception — COPYLEFT.
-    nanosvg-master       zlib, Mikko Mononen.
-    nanovg-master        zlib, Mikko Mononen.
-    ngx-fast-svg-main    check before any use.
-    resvg-main           MIT or Apache 2.0, at your option.
-    skia-main            3-clause BSD (Google Inc.).
-    SLEFA_1_0_1,         3-clause BSD, Kiia Kallio — the reference
-    SLEFA_QT_comparisons implementation of the article cited in 2.3.
-    stb_truetype.h       Public domain or MIT, at your option.
-    streaming-svg-parser MIT, Andrei Kashcha.
-    wavelet_raster       Josiah Manson — "free to use for non-commercial
-                         purposes". NOT FREE SOFTWARE: commercial use needs
-                         contact with the author.
-
-None of those directories was copied into `lib/`. `lib/src/blend2d/` derives
-from Blend2D (zlib) and is credited in section 1; the Marlin port is isolated
-in `third_party/`, under the original licence. The other trees served as
-reading and as oracles, not as a source of code.
-
-BEWARE OF COPYLEFT: any excerpt of `cairo`, `libart_lgpl`, `jdk` or
-`marlin-renderer` copied into `lib/` makes the MIT licence declared in
-`pubspec.yaml` false. The same holds for `freetype` when the licence choice is
-GPL 2 rather than the FreeType License. Today that does not happen, and that is
-what `test/architecture/mit_boundary_test.dart` exists to keep proving.
+This inventory covers what the repository VERSIONS. Source trees kept on a
+development machine for study are not distributed by this project, carry no
+obligation for anyone who receives it, and are deliberately not listed here.
