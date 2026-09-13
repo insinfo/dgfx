@@ -38,3 +38,8 @@ O diretório `third_party/` é usado apenas por testes e é excluído do pacote
 publicado no pub.dev (veja `.pubignore`). Nenhuma parte dele é alcançável a
 partir de `package:dgfx/dgfx.dart`, e um teste de arquitetura verifica isso.
 
+O arquivo `NOTICE`, que acompanha o pacote publicado, traz o inventário de
+licença completo: a atribuição ao Blend2D (zlib) exigida pela cláusula 2 da
+sua licença, e a procedência de todo o material de terceiros que fica apenas
+no repositório de desenvolvimento.
+
