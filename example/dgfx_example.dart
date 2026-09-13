@@ -1,6 +1,6 @@
-// Desenha uma cena com preenchimento, gradiente, stroke e clip, e imprime uma
-// prévia em ASCII. Não usa `dart:io` de propósito: o mesmo arquivo roda em
-// native, web e wasm.
+// Draws a scene with a fill, a gradient, a stroke and a clip, and prints an
+// ASCII preview. It deliberately avoids `dart:io`: the same file runs on
+// native, web and wasm.
 import 'package:dgfx/dgfx.dart';
 
 Future<void> main() async {
@@ -38,8 +38,8 @@ Future<void> main() async {
     ));
   await ctx.strokePath(blob);
 
-  // 3. Um retângulo vermelho recortado à metade — o clip corta por máscara de
-  //    cobertura, então a borda sai exatamente na fronteira, não no bbox.
+  // 3. A red rectangle clipped in half — the clip cuts by coverage mask, so
+  //    the edge lands exactly on the boundary, not on the bounding box.
   ctx.save();
   ctx.clipToRectPath(0, 0, size / 2, size.toDouble());
   ctx.setFillStyle(0x99CC3333);
@@ -65,7 +65,7 @@ void _printPreview(BLImage image, {int cols = 60}) {
       final r = (argb >> 16) & 0xFF;
       final g = (argb >> 8) & 0xFF;
       final b = argb & 0xFF;
-      // Luminância perceptual, invertida: quanto mais escuro, mais denso.
+      // Perceptual luminance, inverted: the darker it is, the denser.
       final luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
       buffer.write(ramp[((1.0 - luma) * (ramp.length - 1)).round()]);
     }
