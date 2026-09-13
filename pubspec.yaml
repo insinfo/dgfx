@@ -1,7 +1,7 @@
 name: dgfx
 description: >-
-  Motor gráfico 2D em Dart puro: rasterização analítica com anti-aliasing,
-  gradientes, padrões, stroking, clipping e texto OpenType. Sem dependências.
+  A 2D graphics engine in pure Dart: analytic anti-aliased rasterization,
+  gradients, patterns, stroking, clipping and OpenType text. No dependencies.
 version: 1.0.0
 repository: https://github.com/insinfo/dgfx
 issue_tracker: https://github.com/insinfo/dgfx/issues
@@ -17,12 +17,12 @@ topics:
 environment:
   sdk: ^3.6.0
 
-# O motor não tem dependências de runtime: só `dart:core`, `dart:math`,
-# `dart:typed_data` e `dart:async`. Isso mantém o pacote compilável para
-# native, web e wasm sem carregar nada junto.
+# The engine has no runtime dependencies: only `dart:core`, `dart:math`,
+# `dart:typed_data` and `dart:async`. That is what keeps the package
+# compilable for native, web and wasm without dragging anything along.
 
 dev_dependencies:
   lints: ^5.0.0
   test: ^1.26.3
-  # Usado apenas pelos benchmarks, para gravar PNGs de inspeção visual.
+  # Used only by the benchmarks, to write PNGs for visual inspection.
   archive: ^4.0.7

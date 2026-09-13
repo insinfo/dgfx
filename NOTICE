@@ -1,10 +1,10 @@
 dgfx
 Copyright (c) 2026 Isaque Neves
 
-Distribuído sob a licença MIT — veja o arquivo LICENSE.
+Distributed under the MIT licence — see the LICENSE file.
 
 ================================================================================
-NOTICE (English summary)
+SUMMARY
 ================================================================================
 
 dgfx is an independent Dart reimplementation derived from Blend2D (C++, zlib
@@ -25,43 +25,43 @@ third-party file listed in section 2 exist only in the source repository and
 never reach the published archive.
 
 ================================================================================
-ATRIBUIÇÃO DE TERCEIROS
+THIRD-PARTY ATTRIBUTION
 ================================================================================
 
-Este arquivo é o inventário de licença do repositório. A seção 1 cobre o que
-viaja no pacote publicado; a seção 2 cobre o que fica apenas no repositório de
-desenvolvimento. Estar na seção 2 não dispensa a atribuição: dispensa apenas a
-obrigação de redistribuir o aviso junto com o pacote.
+This file is the repository's licence inventory. Section 1 covers what travels
+in the published package; section 2 covers what stays in the development
+repository only. Being in section 2 does not remove the attribution: it removes
+only the obligation to redistribute the notice alongside the package.
 
 --------------------------------------------------------------------------------
-1. Blend2D — lib/src/blend2d/                        [VIAJA NO PACOTE]
+1. Blend2D — lib/src/blend2d/                      [TRAVELS IN THE PACKAGE]
 --------------------------------------------------------------------------------
 
-O motor de rasterização, composição, gradientes, padrões, stroking e texto
-deste pacote é uma reimplementação independente em Dart, derivada do projeto
-Blend2D (C++).
+This package's rasterization, compositing, gradient, pattern, stroking and text
+engine is an independent Dart reimplementation derived from the Blend2D project
+(C++).
 
     Blend2D — 2D Vector Graphics Powered by a JIT Compiler
     https://blend2d.com
     Copyright (c) 2017-2025 Petr Kobalicek, Fabian Yzerman
-    Licença: zlib
+    Licence: zlib
 
-AVISO EXIGIDO PELA CLÁUSULA 2 DA LICENÇA ZLIB:
+NOTICE REQUIRED BY CLAUSE 2 OF THE ZLIB LICENCE:
 
-    Esta é uma VERSÃO ALTERADA. `dgfx` NÃO é o Blend2D, não é distribuído
-    pelos autores do Blend2D e não é endossado por eles. Trata-se de uma
-    reimplementação em Dart, com arquitetura, API e comportamento próprios,
-    escrita a partir do estudo do projeto original. Bugs, diferenças de
-    renderização e características de desempenho aqui presentes são
-    responsabilidade deste pacote, não do Blend2D.
+    This is an ALTERED VERSION. `dgfx` is NOT Blend2D, is not distributed by
+    the Blend2D authors and is not endorsed by them. It is a Dart
+    reimplementation with its own architecture, API and behaviour, written
+    from a study of the original project. Bugs, rendering differences and
+    performance characteristics found here are this package's responsibility,
+    not Blend2D's.
 
-A licença zlib não é copyleft: ela permite a redistribuição sob MIT, desde que
-a origem não seja deturpada, a versão alterada seja marcada como tal e este
-aviso não seja removido. É o que as três cláusulas abaixo dizem, e é por isso
-que este arquivo está dentro do pacote publicado e não apenas no repositório —
-um aviso que o `.pubignore` excluísse não cumpriria a cláusula 3.
+The zlib licence is not copyleft: it permits redistribution under MIT, provided
+the origin is not misrepresented, the altered version is marked as such, and
+this notice is not removed. That is what the three clauses below say, and it is
+why this file sits inside the published package rather than only in the
+repository — a notice that `.pubignore` excluded would not satisfy clause 3.
 
-Texto integral da licença zlib do Blend2D:
+Full text of the Blend2D zlib licence:
 
     Copyright (c) 2017-2025 Petr Kobalicek, Fabian Yzerman
 
@@ -81,83 +81,92 @@ Texto integral da licença zlib do Blend2D:
        misrepresented as being the original software.
     3. This notice may not be removed or altered from any source distribution.
 
-Nenhum outro código de terceiros viaja no pacote publicado.
+No other third-party code travels in the published package.
 
 --------------------------------------------------------------------------------
-2. Material que NÃO viaja no pacote publicado
+2. Material that does NOT travel in the published package
 --------------------------------------------------------------------------------
 
-Tudo nesta seção é excluído do arquivo enviado ao pub.dev por `.pubignore`, e o
-trabalho `package` do CI falha se qualquer um destes diretórios aparecer na
-árvore impressa pelo `dart pub publish --dry-run`. Está registrado aqui para
-que a procedência fique documentada mesmo assim.
+Everything in this section is excluded from the archive sent to pub.dev by
+`.pubignore`, and the CI `package` job fails if any of these directories shows
+up in the tree printed by `dart pub publish --dry-run`. It is recorded here so
+that the provenance stays documented anyway.
 
 2.1 third_party/marlin_openjdk/ — COPYLEFT
 --------------------------------------------------------------------------------
 
     Copyright Oracle and/or its affiliates
     Original: sun.java2d.marlin / org.marlin.pisces (OpenJDK)
-    Tradução para Dart: Isaque Neves, 2026
-    Licença: GNU General Public License versão 2, com Classpath Exception
+    Dart translation: Isaque Neves, 2026
+    Licence: GNU General Public License version 2, with Classpath Exception
 
-Traduzir código cria obra derivada, então este port permanece sob a licença do
-original e NÃO é redistribuído sob MIT. Está licenciado separadamente no
-próprio diretório (`third_party/marlin_openjdk/LICENSE` e
-`ASSEMBLY_EXCEPTION`), com os cabeçalhos de copyright da Oracle preservados em
-cada arquivo e o aviso de modificação que a GPL exige.
+Translating code creates a derivative work, so this port stays under the
+original licence and is NOT redistributed under MIT. It is licensed separately
+in its own directory (`third_party/marlin_openjdk/LICENSE` and
+`ASSEMBLY_EXCEPTION`), with Oracle's copyright headers preserved in every file
+and the modification notice the GPL requires.
 
-Serve como oráculo independente em testes de conformidade — um rasterizador
-escrito por outras pessoas, a partir de outra base de código, contra o qual a
-saída do dgfx pode ser conferida.
+It serves as an independent oracle in conformance tests — a rasterizer written
+by other people, from another code base, against which dgfx's output can be
+checked.
 
-Estado verificado na versão 1.0.0, e reverificado a cada build:
+State verified at version 1.0.0, and re-verified on every build:
 
-  a) Nenhum arquivo de `lib/` importa, exporta ou referencia este diretório.
-     O único consumidor em todo o repositório é
-     `test/goldens_cross_check_test.dart`, que não é publicado.
-     Verificado por `test/architecture/mit_boundary_test.dart`.
-  b) Os cabeçalhos de copyright da Oracle e a declaração de licença estão
-     presentes em cada arquivo `.dart` do diretório. Mesmo teste.
-  c) `.pubignore` exclui `third_party/`, e o `LICENSE` da raiz declara que a
-     MIT não cobre esse diretório. Mesmo teste.
-  d) O pacote publicado não contém nem alcança uma única linha daqui.
-     Verificado pelo trabalho `package` do CI, sobre a árvore real do
-     `--dry-run`.
+  a) No file under `lib/` imports, exports or references this directory. The
+     only consumer in the whole repository is
+     `test/goldens_cross_check_test.dart`, which is not published.
+     Verified by `test/architecture/mit_boundary_test.dart`.
+  b) Oracle's copyright headers and the licence statement are present in every
+     `.dart` file in the directory. Same test.
+  c) `.pubignore` excludes `third_party/`, and the root `LICENSE` states that
+     MIT does not cover that directory. Same test.
+  d) The published package contains and reaches not one line from here.
+     Verified by the CI `package` job, against the real `--dry-run` tree.
 
-A Classpath Exception permite que um módulo independente *linke* com este
-código sem se tornar GPL — que é exatamente o caso de um teste. Ela não
-permite relicenciar o código em si. Se algum dia ele for usado além dos
-testes, a implicação de licença precisa ser reavaliada.
+The Classpath Exception allows an independent module to *link* against this
+code without becoming GPL — which is exactly what a test does. It does not
+allow relicensing the code itself. If it is ever used beyond the tests, the
+licence implication has to be re-examined.
 
-2.2 research/rasterizers/ — estudos derivados de terceiros
+2.2 research/rasterizers/ — studies derived from third parties
 --------------------------------------------------------------------------------
 
-Rasterizadores experimentais mantidos apenas para comparação nos benchmarks.
-Nenhum é alcançável a partir de `package:dgfx/dgfx.dart`.
+Experimental rasterizers kept only for comparison in the benchmarks. None is
+reachable from `package:dgfx/dgfx.dart`.
 
-  - `research/rasterizers/edge_flag/` e `research/rasterizers/edge_flag_aa/`
-    derivam do algoritmo "Scanline edge-flag algorithm for antialiasing",
-    Copyright (c) 2005-2007 Kiia Kallio, licença BSD de 3 cláusulas.
+  - `research/rasterizers/edge_flag/` and `research/rasterizers/edge_flag_aa/`
+    derive from the "Scanline edge-flag algorithm for antialiasing",
+    Copyright (c) 2005-2007 Kiia Kallio, 3-clause BSD licence.
 
-  - `research/rasterizers/skia_scanline/` é inspirado no rasterizador scanline
-    do Skia, Copyright (c) 2011 Google Inc., licença BSD de 3 cláusulas.
+  - `research/rasterizers/skia_scanline/` is inspired by Skia's scanline
+    rasterizer, Copyright (c) 2011 Google Inc., 3-clause BSD licence.
 
-  - `research/rasterizers/blend2d/` deriva do Blend2D (zlib), creditado na
-    seção 1.
+  - `research/rasterizers/blend2d/` derives from Blend2D (zlib), credited in
+    section 1.
 
-  - Os demais (`acdr`, `amcad`, `blaze_fast`, `daa`, `dbsr`, `ddfi`, `epl_aa`,
+  - The rest (`acdr`, `amcad`, `blaze_fast`, `daa`, `dbsr`, `ddfi`, `epl_aa`,
     `hsgr`, `lnaf_se`, `msaa_2d`, `qcs`, `rhbd`, `scdt`, `scp_aed`, `ssaa`,
-    `sweep_sdf`, `tessellation`, `wavelet_haar`), mais `research/png/` e
-    `research/svg/`, são implementações próprias das ideias descritas em
-    `pesquisa/`.
+    `sweep_sdf`, `tessellation`, `wavelet_haar`), plus `research/png/` and
+    `research/svg/`, are this project's own implementations of the ideas
+    described in `pesquisa/`.
 
-2.3 pesquisa/ — textos de terceiros reproduzidos integralmente
+2.3 pesquisa/ — design notes, and third-party texts no longer versioned
 --------------------------------------------------------------------------------
 
-Além das notas de pesquisa próprias, este diretório contém cópias integrais de
-artigos, especificações e posts de blog de terceiros, cada um sob o copyright
-de seus autores ou editores. Nenhum deles foi licenciado para redistribuição;
-estão aqui como material de leitura e não são publicados.
+`pesquisa/*.md` holds this project's own design and research notes — the
+rasterization approaches studied and sketched for dgfx. They are this
+project's work, they are versioned, and they are not published.
+
+`pesquisa/news/` held full copies of third-party articles, specifications and
+blog posts, each under its authors' or publishers' copyright, none of them
+licensed for redistribution. **That directory was removed from version control
+and added to `.gitignore`.** It is no longer in any new commit and is not
+published; it survives only on a development machine, the same as
+`referencias/` in section 2.5. Redistributing the full text of copyrighted
+articles in a public repository is redistribution without permission, and the
+only advantage over a link is reading offline.
+
+The works that were there, kept as a bibliography:
 
   - "Scanline edge-flag algorithm for antialiasing" — Kiia Kallio,
     Eurographics / EG UK Theory and Practice of Computer Graphics, 2007.
@@ -166,85 +175,82 @@ estão aqui como material de leitura e não são publicados.
     Acta Polytechnica Hungarica, 2015.
   - "Masked Software Occlusion Culling" — preprint, High Performance Graphics
     2016.
-  - "Optimizing the basic rasterizer" e "Triangle rasterization in practice" —
-    Fabian Giesen (the ryg blog).
+  - "Optimizing the basic rasterizer" and "Triangle rasterization in practice"
+    — Fabian Giesen (the ryg blog).
   - "Know your FPU: Fixing Floating Fast" — Sree Kotay, 2006.
-  - "Culling occluded geometry using the visibility result buffer" —
-    documentação para desenvolvedores da Apple.
-  - "Scalable Vector Graphics (SVG) Tiny 1.2 Specification" e
-    "Conformance Criteria — SVG 2" (HTML e arquivos de apoio) — W3C, sob a
-    W3C Document License.
-  - `pesquisa/news/Conformance Criteria — SVG 2_files/MathJax.js.download` —
-    MathJax, Copyright (c) 2009-2017 The MathJax Consortium, Apache 2.0.
-    Baixado junto com a página acima.
+  - "Culling occluded geometry using the visibility result buffer" — Apple
+    developer documentation.
+  - "Scalable Vector Graphics (SVG) Tiny 1.2 Specification" and "Conformance
+    Criteria — SVG 2" (HTML and supporting files) — W3C, under the W3C
+    Document License.
+  - MathJax, Copyright (c) 2009-2017 The MathJax Consortium, Apache 2.0,
+    downloaded together with the W3C page above.
 
-RECOMENDAÇÃO: substituir estas cópias por referências bibliográficas e links.
-Nada aqui é copyleft nem contamina a licença do pacote, mas manter o texto
-integral de artigos com copyright num repositório público é redistribuição sem
-autorização, e a única razão de estarem aqui é a conveniência de ler offline —
-que um link resolve igualmente bem.
+Note that the commits made before the directory was ignored still carry those
+files in history. Removing them from history would need a rewrite; keeping them
+out of every future commit is what was done.
 
-2.4 assets/ — imagens usadas em benchmark e comparação visual
+2.4 assets/ — images used in benchmarks and visual comparison
 --------------------------------------------------------------------------------
 
-  - `Ghostscript_Tiger.svg` / `.png` e as variantes "tiger": o tigre é o
-    exemplo clássico do Ghostscript (`examples/tiger.eps`), e a versão SVG
-    circula no Wikimedia Commons como domínio público. As variantes
-    `tiger x1.svg` e `tiger x 2.svg` trazem a marca "Creator: CorelDRAW" e são
-    reexportações.
-  - `froggy-simple.svg` / `.png`: procedência não confirmada.
+  - `Ghostscript_Tiger.svg` / `.png` and the "tiger" variants: the tiger is
+    Ghostscript's classic example (`examples/tiger.eps`), and the SVG version
+    circulates on Wikimedia Commons as public domain. The variants
+    `tiger x1.svg` and `tiger x 2.svg` carry a "Creator: CorelDRAW" mark and
+    are re-exports.
+  - `froggy-simple.svg` / `.png`: provenance not confirmed.
 
-Nenhuma é publicada no pacote. Procedência não confirmada é motivo para não
-publicar, não para apagar; se algum dia forem usadas fora do repositório,
-convém substituí-las por material com origem declarada.
+None is published in the package. Unconfirmed provenance is a reason not to
+publish, not a reason to delete; if they are ever used outside the repository,
+they should be replaced with material of declared origin.
 
-2.5 referencias/ — árvores de código de terceiros (não versionado)
+2.5 referencias/ — third-party source trees (not versioned)
 --------------------------------------------------------------------------------
 
-Este diretório está no `.gitignore`: não é versionado, não está em nenhum
-commit e não é publicado. Existe apenas no disco de desenvolvimento, com o
-código-fonte original estudado durante o port. Registrado aqui porque a origem
-do estudo importa para a licença do resultado.
+This directory is in `.gitignore`: it is not versioned, is in no commit and is
+not published. It exists only on a development machine, holding the original
+source code studied during the port. It is recorded here because the origin of
+the study matters to the licence of the result.
 
-    agg-2.6-cpp          Anti-Grain Geometry, Maxim Shemanarev — licença
-                         dupla: BSD modificada ou Anti-Grain Geometry Public
-                         License, à escolha. Mas `agg-src/gpc/` traz o General
-                         Polygon Clipper, (C) 1997-1999 University of
-                         Manchester, "free for NON-COMMERCIAL use" — NÃO É
-                         SOFTWARE LIVRE, e uso comercial exige consentimento
-                         do autor.
-    blend2d-master       zlib — a origem deste port. Veja a seção 1.
-    cairo-master         LGPL 2.1 ou MPL 1.1, à escolha — COPYLEFT FRACO.
+    agg-2.6-cpp          Anti-Grain Geometry, Maxim Shemanarev — dual licence:
+                         modified BSD or the Anti-Grain Geometry Public
+                         License, at your option. But `agg-src/gpc/` carries
+                         the General Polygon Clipper, (C) 1997-1999 University
+                         of Manchester, "free for NON-COMMERCIAL use" — NOT
+                         FREE SOFTWARE, and commercial use needs the author's
+                         consent.
+    blend2d-master       zlib — the origin of this port. See section 1.
+    cairo-master         LGPL 2.1 or MPL 1.1, at your option — WEAK COPYLEFT.
     font-rs-master       Apache 2.0.
-    freetype-go          FreeType License ou GPL 2, à escolha.
-    freetype-master      FreeType License ou GPL 2, à escolha.
+    freetype-go          FreeType License or GPL 2, at your option.
+    freetype-master      FreeType License or GPL 2, at your option.
     harfbuzz-main        "Old MIT".
-    image-master         BSD de 3 cláusulas (The Go Authors).
-    jdk-master,          GPL 2 com Classpath Exception — COPYLEFT.
-    jdk-a7f731125b7f     A origem do port em `third_party/marlin_openjdk/`.
+    image-master         3-clause BSD (The Go Authors).
+    jdk-master,          GPL 2 with Classpath Exception — COPYLEFT.
+    jdk-a7f731125b7f     The origin of the port in `third_party/marlin_openjdk/`.
     kb-main              zlib, (C) 2024-2025 Jimmy Lefevre.
-    libart_lgpl-master   LGPL 2 — COPYLEFT FRACO.
-    marlin-renderer      GPL 2 com Classpath Exception — COPYLEFT.
+    libart_lgpl-master   LGPL 2 — WEAK COPYLEFT.
+    marlin-renderer      GPL 2 with Classpath Exception — COPYLEFT.
     nanosvg-master       zlib, Mikko Mononen.
     nanovg-master        zlib, Mikko Mononen.
-    ngx-fast-svg-main    verificar antes de qualquer uso.
-    resvg-main           MIT ou Apache 2.0, à escolha.
-    skia-main            BSD de 3 cláusulas (Google Inc.).
-    SLEFA_1_0_1,         BSD de 3 cláusulas, Kiia Kallio — implementação de
-    SLEFA_QT_comparisons referência do artigo citado em 2.3.
-    stb_truetype.h       Domínio público ou MIT, à escolha.
+    ngx-fast-svg-main    check before any use.
+    resvg-main           MIT or Apache 2.0, at your option.
+    skia-main            3-clause BSD (Google Inc.).
+    SLEFA_1_0_1,         3-clause BSD, Kiia Kallio — the reference
+    SLEFA_QT_comparisons implementation of the article cited in 2.3.
+    stb_truetype.h       Public domain or MIT, at your option.
     streaming-svg-parser MIT, Andrei Kashcha.
     wavelet_raster       Josiah Manson — "free to use for non-commercial
-                         purposes". NÃO É SOFTWARE LIVRE: uso comercial exige
-                         contato com o autor.
+                         purposes". NOT FREE SOFTWARE: commercial use needs
+                         contact with the author.
 
-Nenhum desses diretórios foi copiado para `lib/`. `lib/src/blend2d/` deriva do
-Blend2D (zlib) e está creditado na seção 1; o port do Marlin está isolado em
-`third_party/`, sob a licença original. As demais árvores serviram de leitura
-e de oráculo, não de fonte de código.
+None of those directories was copied into `lib/`. `lib/src/blend2d/` derives
+from Blend2D (zlib) and is credited in section 1; the Marlin port is isolated
+in `third_party/`, under the original licence. The other trees served as
+reading and as oracles, not as a source of code.
 
-ATENÇÃO ao copyleft: qualquer trecho de `cairo`, `libart_lgpl`, `jdk` ou
-`marlin-renderer` que venha a ser copiado para `lib/` torna falsa a licença MIT
-declarada no `pubspec.yaml`. O mesmo vale para `freetype` quando a escolha de
-licença for a GPL 2 em vez da FreeType License. Hoje isso não acontece, e é o
-que `test/architecture/mit_boundary_test.dart` existe para continuar provando.
+BEWARE OF COPYLEFT: any excerpt of `cairo`, `libart_lgpl`, `jdk` or
+`marlin-renderer` copied into `lib/` makes the MIT licence declared in
+`pubspec.yaml` false. The same holds for `freetype` when the licence choice is
+GPL 2 rather than the FreeType License. Today that does not happen, and that is
+what `test/architecture/mit_boundary_test.dart` exists to keep proving.
