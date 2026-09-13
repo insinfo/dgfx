@@ -1,6 +1,6 @@
 # Changelog
 
-## Não publicado
+## 1.0.0
 
 ### Corrigido
 
