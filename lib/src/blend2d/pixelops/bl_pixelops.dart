@@ -20,7 +20,7 @@ int udiv255(int x) => ((x + 0x80) * 0x101) >>> 16;
 /// Negate in 255 space: `255 - x`.
 int neg255(int x) => x ^ 0xFF;
 
-/// Clamp to [0, 255].
+/// Clamp to `0..255`.
 int clamp255(int x) => x < 0 ? 0 : (x > 255 ? 255 : x);
 
 /// Saturating add of two bytes (clamp to 255).
@@ -58,7 +58,7 @@ int premultiply(int argb) {
   return agm | (rbm >>> 8);
 }
 
-/// Reciprocal table for unpremultiply: (255 * 65536 + a/2) / a, for a in [0..255].
+/// Reciprocal table for unpremultiply: (255 * 65536 + a/2) / a, for a in `0..255`.
 /// Index 0 is 0 (special case: fully transparent).
 final List<int> _unpremultiplyRcp = List<int>.generate(256, (a) {
   if (a == 0) return 0;
@@ -84,16 +84,16 @@ int unpremultiply(int prgb) {
 // Channel extraction helpers
 // ---------------------------------------------------------------------------
 
-/// Extract alpha channel [0..255].
+/// Extract alpha channel `0..255`.
 int alphaOf(int argb) => (argb >>> 24) & 0xFF;
 
-/// Extract red channel [0..255].
+/// Extract red channel `0..255`.
 int redOf(int argb) => (argb >>> 16) & 0xFF;
 
-/// Extract green channel [0..255].
+/// Extract green channel `0..255`.
 int greenOf(int argb) => (argb >>> 8) & 0xFF;
 
-/// Extract blue channel [0..255].
+/// Extract blue channel `0..255`.
 int blueOf(int argb) => argb & 0xFF;
 
 /// Pack ARGB channels into a single int.
@@ -135,7 +135,7 @@ int swizzleRgbaToArgb(int rgba) {
 // Linear <-> sRGB (for soft-light and future color-space-aware ops)
 // ---------------------------------------------------------------------------
 
-/// Approximate sRGB to linear conversion for a single channel [0..255] → [0.0..1.0].
+/// Approximate sRGB to linear conversion for a single channel `0..255` → `0.0..1.0`.
 double srgbToLinear(int c) {
   final s = c / 255.0;
   return s <= 0.04045
@@ -143,7 +143,7 @@ double srgbToLinear(int c) {
       : math.pow((s + 0.055) / 1.055, 2.4).toDouble();
 }
 
-/// Approximate linear to sRGB conversion [0.0..1.0] → [0..255].
+/// Approximate linear to sRGB conversion `0.0..1.0` → `0..255`.
 int linearToSrgb(double l) {
   final s = l <= 0.0031308 ? l * 12.92 : 1.055 * math.pow(l, 1.0 / 2.4) - 0.055;
   return clamp255((s * 255.0 + 0.5).toInt());

@@ -95,7 +95,7 @@ class BLContext {
   /// Opções de stroke (largura, caps, joins) para [strokePath].
   BLStrokeOptions strokeOptions = const BLStrokeOptions();
 
-  /// Transparência global [0.0..1.0]. Applied on top of fill/stroke alpha.
+  /// Transparência global `0.0..1.0`. Applied on top of fill/stroke alpha.
   double globalAlpha = 1.0;
 
   /// Clip retangular (null = sem clip, usa imagem inteira).
@@ -281,7 +281,7 @@ class BLContext {
   // Global alpha
   // =========================================================================
 
-  /// Define a transparência global [0.0..1.0].
+  /// Define a transparência global `0.0..1.0`.
   void setGlobalAlpha(double alpha) {
     globalAlpha = alpha.clamp(0.0, 1.0);
   }
