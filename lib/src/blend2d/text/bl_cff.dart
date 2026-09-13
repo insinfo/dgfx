@@ -149,6 +149,7 @@ bool _interpretCharstring(
   _CFFIndex? localSubrs,
   _CFFIndex? globalSubrs,
   List<List<double>> variationScalars = const <List<double>>[],
+  double tolerance = 0.25,
 }) {
   final stack = Float64List(48); // CFF operand stack (max 48 per spec)
   final transient = Float64List(32);
@@ -202,6 +203,7 @@ bool _interpretCharstring(
         -y2 * scaleY,
         x3 * scaleX,
         -y3 * scaleY,
+        tolerance: tolerance,
       );
     }
   }
@@ -1457,6 +1459,7 @@ class BLCFFDecoder {
     double scaleX = 1.0,
     double scaleY = 1.0,
     List<double> variationCoordinates = const <double>[],
+    double tolerance = 0.25,
   }) {
     final cff = _CFFStructure.parse(view, cffOffset, cffLength);
     if (cff == null) return null;
@@ -1478,6 +1481,7 @@ class BLCFFDecoder {
       globalSubrs: cff.globalSubrs,
       variationScalars: cff.variationStore?.scalars(variationCoordinates) ??
           const <List<double>>[<double>[]],
+      tolerance: tolerance,
     );
     if (!ok) return null;
 

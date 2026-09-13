@@ -62,5 +62,7 @@ export 'src/blend2d/text/bl_font_collection.dart';
 export 'src/blend2d/text/bl_glyph_cache.dart';
 export 'src/blend2d/text/bl_glyph_rasterizer.dart';
 export 'src/blend2d/text/bl_glyph_run.dart';
+export 'src/blend2d/text/bl_mac_glyph_names.dart';
 export 'src/blend2d/text/bl_opentype_layout.dart';
 export 'src/blend2d/text/bl_text_layout.dart';
+export 'src/blend2d/text/bl_type1.dart';

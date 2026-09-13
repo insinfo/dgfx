@@ -206,6 +206,19 @@ class BLLinearGradient {
   final bool extendStart;
   final bool extendEnd;
 
+  /// Matriz que leva o espaço do gradiente ao espaço do device.
+  ///
+  /// Os pontos/raios do gradiente são interpretados NESTE espaço; o fetcher
+  /// inverte a matriz e leva cada pixel de device de volta a ele. É a mesma
+  /// semântica de `BLGradient::setTransform` do Blend2D C++ e do `/Matrix` de
+  /// um `/Pattern` do PDF (ISO 32000-1 8.7.3.1), e é o que permite a um
+  /// shading radial produzir uma ELIPSE sob uma CTM anisotrópica, em vez de
+  /// um círculo de raio médio.
+  ///
+  /// Atenção: é o inverso da convenção de [BLPattern.transform], que já leva
+  /// o device ao espaço do padrão.
+  final BLMatrix2D transform;
+
   const BLLinearGradient({
     required this.p0,
     required this.p1,
@@ -213,6 +226,7 @@ class BLLinearGradient {
     this.extendMode = BLGradientExtendMode.pad,
     this.extendStart = true,
     this.extendEnd = true,
+    this.transform = BLMatrix2D.identity,
   });
 }
 
@@ -226,6 +240,19 @@ class BLRadialGradient {
   final bool extendStart;
   final bool extendEnd;
 
+  /// Matriz que leva o espaço do gradiente ao espaço do device.
+  ///
+  /// Os pontos/raios do gradiente são interpretados NESTE espaço; o fetcher
+  /// inverte a matriz e leva cada pixel de device de volta a ele. É a mesma
+  /// semântica de `BLGradient::setTransform` do Blend2D C++ e do `/Matrix` de
+  /// um `/Pattern` do PDF (ISO 32000-1 8.7.3.1), e é o que permite a um
+  /// shading radial produzir uma ELIPSE sob uma CTM anisotrópica, em vez de
+  /// um círculo de raio médio.
+  ///
+  /// Atenção: é o inverso da convenção de [BLPattern.transform], que já leva
+  /// o device ao espaço do padrão.
+  final BLMatrix2D transform;
+
   const BLRadialGradient({
     required this.c0,
     required this.c1,
@@ -235,6 +262,7 @@ class BLRadialGradient {
     this.extendMode = BLGradientExtendMode.pad,
     this.extendStart = true,
     this.extendEnd = true,
+    this.transform = BLMatrix2D.identity,
   });
 }
 
@@ -244,11 +272,25 @@ class BLConicGradient {
   final List<BLGradientStop> stops;
   final BLGradientExtendMode extendMode;
 
+  /// Matriz que leva o espaço do gradiente ao espaço do device.
+  ///
+  /// Os pontos/raios do gradiente são interpretados NESTE espaço; o fetcher
+  /// inverte a matriz e leva cada pixel de device de volta a ele. É a mesma
+  /// semântica de `BLGradient::setTransform` do Blend2D C++ e do `/Matrix` de
+  /// um `/Pattern` do PDF (ISO 32000-1 8.7.3.1), e é o que permite a um
+  /// shading radial produzir uma ELIPSE sob uma CTM anisotrópica, em vez de
+  /// um círculo de raio médio.
+  ///
+  /// Atenção: é o inverso da convenção de [BLPattern.transform], que já leva
+  /// o device ao espaço do padrão.
+  final BLMatrix2D transform;
+
   const BLConicGradient({
     required this.center,
     this.angle = 0.0,
     required this.stops,
     this.extendMode = BLGradientExtendMode.pad,
+    this.transform = BLMatrix2D.identity,
   });
 }
 

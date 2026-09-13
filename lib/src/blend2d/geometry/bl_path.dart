@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import '../core/bl_types.dart';
+
 class BLPathData {
   final List<double> vertices;
   final List<int>? contourVertexCounts;
@@ -15,25 +17,65 @@ class BLPathData {
   });
 }
 
-/// Path minimal para bootstrap do contexto Blend2D em Dart.
-class BLPath {
-  final List<double> _vertices = <double>[];
-  final List<int> _contourCounts = <int>[];
-  final List<bool> _contourClosed = <bool>[];
-  static const int _maxCurveDepth = 16;
+/// Caixa envolvente em coordenadas de ponto flutuante.
+class BLBox {
+  final double x0;
+  final double y0;
+  final double x1;
+  final double y1;
+
+  const BLBox(this.x0, this.y0, this.x1, this.y1);
+
+  double get width => x1 - x0;
+  double get height => y1 - y0;
+
+  @override
+  String toString() => 'BLBox($x0, $y0, $x1, $y1)';
+}
+
+/// Verbos de um [BLPath].
+///
+/// O caminho guarda a geometria COMO FOI DESCRITA — inclusive os pontos de
+/// controle das curvas — e só a achata em polilinha quando alguém consulta
+/// [BLPath.toPathData]. Isso permite escolher a tolerância de achatamento na
+/// resolução em que o caminho vai ser realmente desenhado, e permite
+/// [BLPath.transformed] mapear uma curva sem perder precisão.
+class _BLVerb {
+  static const int moveTo = 0;
+  static const int lineTo = 1;
+  static const int quadTo = 2;
+  static const int cubicTo = 3;
+  static const int close = 4;
+
+  const _BLVerb._();
+}
+
+/// Acumulador de polilinha usado pelo achatamento.
+///
+/// Reproduz exatamente as regras que [BLPath] aplicava quando achatava na
+/// construção: pontos consecutivos idênticos são descartados e um contorno com
+/// menos de dois vértices é removido.
+class _FlattenSink {
+  final List<double> vertices = <double>[];
+  final List<int> counts = <int>[];
+  final List<bool> closed = <bool>[];
 
   bool _hasCurrent = false;
   int _currentCount = 0;
   double _lastX = 0.0;
   double _lastY = 0.0;
 
+  double get lastX => _lastX;
+  double get lastY => _lastY;
+  bool get hasCurrent => _hasCurrent;
+
   void moveTo(double x, double y) {
-    _finishContour();
+    finishContour();
     _hasCurrent = true;
     _lastX = x;
     _lastY = y;
-    _vertices.add(x);
-    _vertices.add(y);
+    vertices.add(x);
+    vertices.add(y);
     _currentCount = 1;
   }
 
@@ -43,28 +85,126 @@ class BLPath {
       return;
     }
     if (x == _lastX && y == _lastY) return;
-    _vertices.add(x);
-    _vertices.add(y);
+    vertices.add(x);
+    vertices.add(y);
     _lastX = x;
     _lastY = y;
     _currentCount++;
   }
 
+  void finishContour({bool isClosed = false}) {
+    if (!_hasCurrent) return;
+    if (_currentCount >= 2) {
+      // Aceita contornos de 2+ pontos para stroke (linhas abertas).
+      // O raster ignora contornos com < 3 pontos via fillPolygon.
+      counts.add(_currentCount);
+      closed.add(isClosed);
+    } else {
+      final removeCount = _currentCount * 2;
+      if (removeCount > 0 && removeCount <= vertices.length) {
+        vertices.removeRange(vertices.length - removeCount, vertices.length);
+      }
+    }
+    _hasCurrent = false;
+    _currentCount = 0;
+  }
+}
+
+/// Path do contexto Blend2D em Dart.
+///
+/// Guarda verbos e pontos de controle; o achatamento em polilinha acontece sob
+/// demanda em [toPathData], com a tolerância que o chamador escolher. Um
+/// caminho construído em espaço do usuário pode portanto ser levado ao espaço
+/// do device por [transformed] e só então achatado, na resolução certa.
+class BLPath {
+  final List<int> _verbs = <int>[];
+  final List<double> _points = <double>[];
+
+  /// Tolerância de achatamento associada a cada verbo de curva, na ordem em
+  /// que as curvas aparecem. Preserva a semântica histórica de
+  /// `quadTo(..., tolerance: t)`, que achatava na hora com `t`.
+  final List<double> _curveTolerance = <double>[];
+
+  static const int _maxCurveDepth = 16;
+
+  /// Tolerância padrão, a mesma que este path usava quando achatava na
+  /// construção.
+  static const double defaultFlattenTolerance = 0.25;
+
+  bool _hasCurrent = false;
+  double _lastX = 0.0;
+  double _lastY = 0.0;
+
+  // Cache do último achatamento: o caminho costuma ser consultado mais de uma
+  // vez (fill + stroke + clip) e re-achatar a cada consulta seria uma
+  // regressão em relação ao achatamento na construção.
+  List<double>? _flatVertices;
+  List<int>? _flatCounts;
+  List<bool>? _flatClosed;
+  double _flatTolerance = double.nan;
+
+  void _invalidate() {
+    _flatVertices = null;
+    _flatCounts = null;
+    _flatClosed = null;
+    _flatTolerance = double.nan;
+  }
+
+  // =========================================================================
+  // Construção
+  // =========================================================================
+
+  void moveTo(double x, double y) {
+    _invalidate();
+    _verbs.add(_BLVerb.moveTo);
+    _points.add(x);
+    _points.add(y);
+    _hasCurrent = true;
+    _lastX = x;
+    _lastY = y;
+  }
+
+  void lineTo(double x, double y) {
+    if (!_hasCurrent) {
+      moveTo(x, y);
+      return;
+    }
+    if (x == _lastX && y == _lastY) return;
+    _invalidate();
+    _verbs.add(_BLVerb.lineTo);
+    _points.add(x);
+    _points.add(y);
+    _lastX = x;
+    _lastY = y;
+  }
+
+  /// Curva quadrática até (x, y) com ponto de controle (cx, cy).
+  ///
+  /// [tolerance] é o desvio máximo aceito quando a curva for achatada por
+  /// [toPathData] sem uma tolerância explícita.
   void quadTo(
     double cx,
     double cy,
     double x,
     double y, {
-    double tolerance = 0.25,
+    double tolerance = defaultFlattenTolerance,
   }) {
     if (!_hasCurrent) {
       moveTo(x, y);
       return;
     }
-    final tolSq = tolerance * tolerance;
-    _flattenQuad(_lastX, _lastY, cx, cy, x, y, tolSq, 0);
+    _invalidate();
+    _verbs.add(_BLVerb.quadTo);
+    _points.add(cx);
+    _points.add(cy);
+    _points.add(x);
+    _points.add(y);
+    _curveTolerance.add(tolerance);
+    _lastX = x;
+    _lastY = y;
   }
 
+  /// Curva cúbica até (x, y) com pontos de controle (c1x, c1y) e (c2x, c2y).
   void cubicTo(
     double c1x,
     double c1y,
@@ -72,33 +212,169 @@ class BLPath {
     double c2y,
     double x,
     double y, {
-    double tolerance = 0.25,
+    double tolerance = defaultFlattenTolerance,
   }) {
     if (!_hasCurrent) {
       moveTo(x, y);
       return;
     }
-    final tolSq = tolerance * tolerance;
-    _flattenCubic(_lastX, _lastY, c1x, c1y, c2x, c2y, x, y, tolSq, 0);
+    _invalidate();
+    _verbs.add(_BLVerb.cubicTo);
+    _points.add(c1x);
+    _points.add(c1y);
+    _points.add(c2x);
+    _points.add(c2y);
+    _points.add(x);
+    _points.add(y);
+    _curveTolerance.add(tolerance);
+    _lastX = x;
+    _lastY = y;
   }
 
   /// Fecha o contorno atual explicitamente.
   /// Marca o contorno como closed para o stroker (sem cap nas extremidades).
   void close() {
     if (!_hasCurrent) return;
-    _finishContour(closed: true);
+    _invalidate();
+    _verbs.add(_BLVerb.close);
+    _hasCurrent = false;
   }
 
-  BLPathData toPathData() {
-    _finishContour();
+  void clear() {
+    _verbs.clear();
+    _points.clear();
+    _curveTolerance.clear();
+    _hasCurrent = false;
+    _lastX = 0.0;
+    _lastY = 0.0;
+    _invalidate();
+  }
+
+  // =========================================================================
+  // Consulta
+  // =========================================================================
+
+  /// True quando o caminho não tem nenhum verbo.
+  bool get isEmpty => _verbs.isEmpty;
+
+  /// True quando o caminho guarda pelo menos uma curva (quad ou cubic).
+  bool get hasCurves => _curveTolerance.isNotEmpty;
+
+  /// Achata o caminho em polilinhas e devolve a geometria resultante.
+  ///
+  /// Sem [tolerance] cada curva usa a tolerância com que foi adicionada (o
+  /// default é [defaultFlattenTolerance]), o que reproduz exatamente o
+  /// resultado de quando o achatamento acontecia na construção. Com
+  /// [tolerance] explícita, ela vale para todas as curvas — é assim que quem
+  /// conhece a escala do device pede o achatamento na resolução certa.
+  BLPathData toPathData({double? tolerance}) {
+    // Historicamente `toPathData()` encerrava o contorno em aberto, de modo
+    // que um `lineTo` posterior iniciava um novo contorno. Preservado.
+    _hasCurrent = false;
+
+    final key = tolerance ?? double.negativeInfinity;
+    if (_flatVertices == null || _flatTolerance != key) {
+      _flatten(tolerance);
+      _flatTolerance = key;
+    }
+
+    final counts = _flatCounts!;
+    final closed = _flatClosed!;
     return BLPathData(
-      vertices: List<double>.from(_vertices),
-      contourVertexCounts:
-          _contourCounts.isEmpty ? null : List<int>.from(_contourCounts),
-      contourClosed:
-          _contourClosed.isEmpty ? null : List<bool>.from(_contourClosed),
+      vertices: List<double>.from(_flatVertices!),
+      contourVertexCounts: counts.isEmpty ? null : List<int>.from(counts),
+      contourClosed: closed.isEmpty ? null : List<bool>.from(closed),
     );
   }
+
+  /// Caixa envolvente do caminho achatado, ou `null` se ele estiver vazio.
+  ///
+  /// É a caixa da geometria desenhada (não a dos pontos de controle), por isso
+  /// depende da tolerância — passe [tolerance] para casar com o achatamento
+  /// que vai ser usado no desenho.
+  BLBox? bounds({double? tolerance}) {
+    final data = toPathData(tolerance: tolerance);
+    final v = data.vertices;
+    if (v.isEmpty) return null;
+    double minX = v[0], maxX = v[0], minY = v[1], maxY = v[1];
+    for (int i = 2; i < v.length; i += 2) {
+      final x = v[i], y = v[i + 1];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    return BLBox(minX, minY, maxX, maxY);
+  }
+
+  /// Caixa envolvente dos pontos de controle: conservadora (contém a caixa
+  /// real) mas não exige achatamento. Útil para rejeição rápida por clip.
+  BLBox? controlBounds() {
+    if (_points.isEmpty) return null;
+    double minX = _points[0], maxX = _points[0];
+    double minY = _points[1], maxY = _points[1];
+    for (int i = 2; i < _points.length; i += 2) {
+      final x = _points[i], y = _points[i + 1];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    return BLBox(minX, minY, maxX, maxY);
+  }
+
+  /// Devolve uma cópia deste caminho com todos os pontos — inclusive os de
+  /// controle das curvas — mapeados por [m].
+  ///
+  /// Como as curvas de Bézier são invariantes por transformação afim, mapear
+  /// os pontos de controle é exato: o resultado é a mesma curva no espaço de
+  /// destino, e só depois ela será achatada, na resolução de destino. As
+  /// tolerâncias por curva são copiadas sem alteração, ou seja passam a valer
+  /// nas unidades do espaço de destino.
+  BLPath transformed(BLMatrix2D m) {
+    final out = BLPath();
+    if (_verbs.isEmpty) return out;
+
+    int p = 0;
+    int c = 0;
+    for (final verb in _verbs) {
+      switch (verb) {
+        case _BLVerb.moveTo:
+          final (x, y) = m.mapPoint(_points[p], _points[p + 1]);
+          out.moveTo(x, y);
+          p += 2;
+          break;
+        case _BLVerb.lineTo:
+          final (x, y) = m.mapPoint(_points[p], _points[p + 1]);
+          out.lineTo(x, y);
+          p += 2;
+          break;
+        case _BLVerb.quadTo:
+          final (cx, cy) = m.mapPoint(_points[p], _points[p + 1]);
+          final (x, y) = m.mapPoint(_points[p + 2], _points[p + 3]);
+          out.quadTo(cx, cy, x, y, tolerance: _curveTolerance[c]);
+          p += 4;
+          c++;
+          break;
+        case _BLVerb.cubicTo:
+          final (c1x, c1y) = m.mapPoint(_points[p], _points[p + 1]);
+          final (c2x, c2y) = m.mapPoint(_points[p + 2], _points[p + 3]);
+          final (x, y) = m.mapPoint(_points[p + 4], _points[p + 5]);
+          out.cubicTo(c1x, c1y, c2x, c2y, x, y,
+              tolerance: _curveTolerance[c]);
+          p += 6;
+          c++;
+          break;
+        case _BLVerb.close:
+          out.close();
+          break;
+      }
+    }
+    return out;
+  }
+
+  /// Cópia independente deste caminho, com as curvas preservadas.
+  BLPath clone() => transformed(BLMatrix2D.identity);
 
   // =========================================================================
   // Convenience geometry methods
@@ -206,39 +482,48 @@ class BLPath {
     close();
   }
 
-  /// Adds another path's geometry to this path.
+  /// Adds another path's geometry to this path, curvas incluídas.
   void addPath(BLPath other) {
-    final data = other.toPathData();
-    final verts = data.vertices;
-    final counts = data.contourVertexCounts;
-    final closed = data.contourClosed;
-
-    if (counts == null) {
-      // Single contour
-      if (verts.length >= 4) {
-        moveTo(verts[0], verts[1]);
-        for (int i = 2; i < verts.length; i += 2) {
-          lineTo(verts[i], verts[i + 1]);
-        }
-      }
+    if (identical(other, this)) {
+      // Copiar de si mesmo enquanto se percorre invalidaria o iterador.
+      addPath(other.clone());
       return;
     }
-
-    int offset = 0;
-    for (int c = 0; c < counts.length; c++) {
-      final n = counts[c];
-      if (n < 2) {
-        offset += n;
-        continue;
+    int p = 0;
+    int c = 0;
+    for (final verb in other._verbs) {
+      switch (verb) {
+        case _BLVerb.moveTo:
+          moveTo(other._points[p], other._points[p + 1]);
+          p += 2;
+          break;
+        case _BLVerb.lineTo:
+          lineTo(other._points[p], other._points[p + 1]);
+          p += 2;
+          break;
+        case _BLVerb.quadTo:
+          quadTo(other._points[p], other._points[p + 1], other._points[p + 2],
+              other._points[p + 3],
+              tolerance: other._curveTolerance[c]);
+          p += 4;
+          c++;
+          break;
+        case _BLVerb.cubicTo:
+          cubicTo(
+              other._points[p],
+              other._points[p + 1],
+              other._points[p + 2],
+              other._points[p + 3],
+              other._points[p + 4],
+              other._points[p + 5],
+              tolerance: other._curveTolerance[c]);
+          p += 6;
+          c++;
+          break;
+        case _BLVerb.close:
+          close();
+          break;
       }
-      moveTo(verts[offset * 2], verts[offset * 2 + 1]);
-      for (int i = 1; i < n; i++) {
-        lineTo(verts[(offset + i) * 2], verts[(offset + i) * 2 + 1]);
-      }
-      if (closed != null && c < closed.length && closed[c]) {
-        close();
-      }
-      offset += n;
     }
   }
 
@@ -247,30 +532,60 @@ class BLPath {
   static double _sin(double x) => math.sin(x);
   static double _tan(double x) => math.tan(x);
 
-  void clear() {
-    _vertices.clear();
-    _contourCounts.clear();
-    _contourClosed.clear();
-    _hasCurrent = false;
-    _currentCount = 0;
-  }
+  // =========================================================================
+  // Achatamento
+  // =========================================================================
 
-  void _finishContour({bool closed = false}) {
-    if (!_hasCurrent) return;
-    if (_currentCount >= 2) {
-      // Aceita contornos de 2+ pontos para stroke (linhas abertas).
-      // O raster ignora contornos com < 3 pontos via fillPolygon.
-      _contourCounts.add(_currentCount);
-      _contourClosed.add(closed);
-    } else {
-      // Remove vertices insuficientes do contorno atual.
-      final removeCount = _currentCount * 2;
-      if (removeCount > 0 && removeCount <= _vertices.length) {
-        _vertices.removeRange(_vertices.length - removeCount, _vertices.length);
+  void _flatten(double? tolerance) {
+    final sink = _FlattenSink();
+    int p = 0;
+    int c = 0;
+    for (final verb in _verbs) {
+      switch (verb) {
+        case _BLVerb.moveTo:
+          sink.moveTo(_points[p], _points[p + 1]);
+          p += 2;
+          break;
+        case _BLVerb.lineTo:
+          sink.lineTo(_points[p], _points[p + 1]);
+          p += 2;
+          break;
+        case _BLVerb.quadTo:
+          final tol = tolerance ?? _curveTolerance[c];
+          final tolSq = tol * tol;
+          _flattenQuad(sink, sink.lastX, sink.lastY, _points[p], _points[p + 1],
+              _points[p + 2], _points[p + 3], tolSq, 0);
+          p += 4;
+          c++;
+          break;
+        case _BLVerb.cubicTo:
+          final tol = tolerance ?? _curveTolerance[c];
+          final tolSq = tol * tol;
+          _flattenCubic(
+              sink,
+              sink.lastX,
+              sink.lastY,
+              _points[p],
+              _points[p + 1],
+              _points[p + 2],
+              _points[p + 3],
+              _points[p + 4],
+              _points[p + 5],
+              tolSq,
+              0);
+          p += 6;
+          c++;
+          break;
+        case _BLVerb.close:
+          sink.finishContour(isClosed: true);
+          break;
       }
     }
-    _hasCurrent = false;
-    _currentCount = 0;
+    sink.finishContour();
+
+    _flatVertices = sink.vertices;
+    _flatCounts = sink.counts;
+    _flatClosed = sink.closed;
   }
 
   @pragma('vm:prefer-inline')
@@ -326,7 +641,8 @@ class BLPath {
     return d1 > d2 ? d1 : d2;
   }
 
-  void _flattenQuad(
+  static void _flattenQuad(
+    _FlattenSink sink,
     double x0,
     double y0,
     double cx,
@@ -338,7 +654,7 @@ class BLPath {
   ) {
     if (depth >= _maxCurveDepth ||
         _quadFlatnessSq(x0, y0, cx, cy, x1, y1) <= tolSq) {
-      lineTo(x1, y1);
+      sink.lineTo(x1, y1);
       return;
     }
 
@@ -349,11 +665,12 @@ class BLPath {
     final x012 = (x01 + x12) * 0.5;
     final y012 = (y01 + y12) * 0.5;
 
-    _flattenQuad(x0, y0, x01, y01, x012, y012, tolSq, depth + 1);
-    _flattenQuad(x012, y012, x12, y12, x1, y1, tolSq, depth + 1);
+    _flattenQuad(sink, x0, y0, x01, y01, x012, y012, tolSq, depth + 1);
+    _flattenQuad(sink, x012, y012, x12, y12, x1, y1, tolSq, depth + 1);
   }
 
-  void _flattenCubic(
+  static void _flattenCubic(
+    _FlattenSink sink,
     double x0,
     double y0,
     double c1x,
@@ -367,7 +684,7 @@ class BLPath {
   ) {
     if (depth >= _maxCurveDepth ||
         _cubicFlatnessSq(x0, y0, c1x, c1y, c2x, c2y, x1, y1) <= tolSq) {
-      lineTo(x1, y1);
+      sink.lineTo(x1, y1);
       return;
     }
 
@@ -386,7 +703,9 @@ class BLPath {
     final x0123 = (x012 + x123) * 0.5;
     final y0123 = (y012 + y123) * 0.5;
 
-    _flattenCubic(x0, y0, x01, y01, x012, y012, x0123, y0123, tolSq, depth + 1);
-    _flattenCubic(x0123, y0123, x123, y123, x23, y23, x1, y1, tolSq, depth + 1);
+    _flattenCubic(
+        sink, x0, y0, x01, y01, x012, y012, x0123, y0123, tolSq, depth + 1);
+    _flattenCubic(
+        sink, x0123, y0123, x123, y123, x23, y23, x1, y1, tolSq, depth + 1);
   }
 }

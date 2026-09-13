@@ -46,13 +46,35 @@ class BLRadialGradientFetcher {
   final double _r0Sq;
   final double _r0Dr;
 
+  /// Inversa de [BLRadialGradient.transform]: leva o pixel de device de volta
+  /// ao espaço em que centros e raios foram definidos. É o que permite a um
+  /// `/Pattern` com `/Matrix [2 0 0 1 0 0]` render uma elipse.
+  final bool _hasTransform;
+  final double _i00;
+  final double _i01;
+  final double _i10;
+  final double _i11;
+  final double _i20;
+  final double _i21;
+
   factory BLRadialGradientFetcher(BLRadialGradient gradient) {
     final params = _prepare(gradient);
-    return BLRadialGradientFetcher._(gradient, params);
+    final m = gradient.transform;
+    // Matriz degenerada não tem volta: tratar como identidade evita NaN.
+    final inv = m.isIdentity ? null : m.invert();
+    return BLRadialGradientFetcher._(gradient, params, inv);
   }
 
-  BLRadialGradientFetcher._(this.gradient, _BLRadialParams params)
-      : _x0 = params.x0,
+  BLRadialGradientFetcher._(this.gradient, _BLRadialParams params,
+      BLMatrix2D? inv)
+      : _hasTransform = inv != null,
+        _i00 = inv?.m00 ?? 1.0,
+        _i01 = inv?.m01 ?? 0.0,
+        _i10 = inv?.m10 ?? 0.0,
+        _i11 = inv?.m11 ?? 1.0,
+        _i20 = inv?.m20 ?? 0.0,
+        _i21 = inv?.m21 ?? 0.0,
+        _x0 = params.x0,
         _y0 = params.y0,
         _dcx = params.dcx,
         _dcy = params.dcy,
@@ -65,8 +87,14 @@ class BLRadialGradientFetcher {
 
   @pragma('vm:prefer-inline')
   int fetch(int x, int y) {
-    final px = x + 0.5;
-    final py = y + 0.5;
+    double px = x + 0.5;
+    double py = y + 0.5;
+    if (_hasTransform) {
+      final tx = _i00 * px + _i10 * py + _i20;
+      final ty = _i01 * px + _i11 * py + _i21;
+      px = tx;
+      py = ty;
+    }
 
     final vx = px - _x0;
     final vy = py - _y0;

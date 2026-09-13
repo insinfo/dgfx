@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import '../geometry/bl_path.dart';
 import 'bl_cff.dart';
+import 'bl_mac_glyph_names.dart';
 import 'bl_opentype_layout.dart';
+import 'bl_type1.dart';
 
 /// Face de fonte carregada em memoria.
 class BLFontFace {
@@ -39,11 +41,30 @@ class BLFontFace {
   final int gsubLength;
   final int gposOffset;
   final int gposLength;
+
+  /// Deslocamento e tamanho da tabela `post`, se presente.
+  final int postOffset;
+  final int postLength;
+
+  /// Fonte Adobe Type 1 desta face, ou `null` se os contornos não vierem de
+  /// um `/FontFile`. Ver [hasType1Outlines].
+  final BLType1Font? type1;
+
   final Map<int, int> _kernPairUnits;
 
   final ByteData _view;
   final _BLCmapMapper _cmapMapper;
-  final Map<int, BLPathData> _glyphOutlineUnitsCache = <int, BLPathData>{};
+
+  /// Cache de contornos em unidades de fonte, indexado primeiro pela
+  /// tolerância de achatamento e depois pelo GID: dois consumidores com
+  /// resoluções diferentes não podem compartilhar o mesmo contorno.
+  final Map<double, Map<int, BLPathData>> _glyphOutlineUnitsCache =
+      <double, Map<int, BLPathData>>{};
+
+  /// Nomes de glifo vindos da tabela `post`, resolvidos sob demanda.
+  List<String>? _postGlyphNames;
+  Map<String, int>? _postNameToGlyphId;
+  bool _postResolved = false;
 
   /// Metadados do CFF (contagem de glifos, charset, encoding). Já vêm
   /// preenchido quando a face nasceu de um CFF puro; para OpenType/CFF é
@@ -109,6 +130,9 @@ class BLFontFace {
     required this.gposLength,
     required Map<int, int> kernPairUnits,
     required _BLCmapMapper cmapMapper,
+    this.postOffset = 0,
+    this.postLength = 0,
+    this.type1,
     BLCFFInfo? cffInfo,
   })  : _kernPairUnits = kernPairUnits,
         _cmapMapper = cmapMapper,
@@ -152,16 +176,142 @@ class BLFontFace {
   /// nomes ausentes.
   int? glyphIdForName(String name) {
     if (name.isEmpty) return null;
-    return cffInfo?.nameToGlyphId[name];
+    final fromCff = cffInfo?.nameToGlyphId[name];
+    if (fromCff != null) return fromCff;
+    final fromType1 = type1?.nameToGlyphId[name];
+    if (fromType1 != null) return fromType1;
+    return _postNames().$2[name];
   }
 
   /// Nome PostScript do glifo [glyphId], ou `null` se indisponivel.
+  ///
+  /// Consulta, nesta ordem, o charset do CFF, o `/CharStrings` de uma fonte
+  /// Type 1 e a tabela `post` de um TrueType.
   String? glyphNameForId(int glyphId) {
+    if (glyphId < 0) return null;
     final info = cffInfo;
-    if (info == null) return null;
-    if (glyphId < 0 || glyphId >= info.glyphNames.length) return null;
-    final name = info.glyphNames[glyphId];
-    return name.isEmpty ? null : name;
+    if (info != null && glyphId < info.glyphNames.length) {
+      final name = info.glyphNames[glyphId];
+      if (name.isNotEmpty) return name;
+    }
+    final t1 = type1;
+    if (t1 != null && glyphId < t1.glyphNames.length) {
+      final name = t1.glyphNames[glyphId];
+      if (name.isNotEmpty) return name;
+    }
+    final names = _postNames().$1;
+    if (glyphId < names.length) {
+      final name = names[glyphId];
+      if (name.isNotEmpty) return name;
+    }
+    return null;
+  }
+
+  /// `true` quando os contornos desta face vêm de uma fonte Adobe Type 1.
+  bool get hasType1Outlines => type1 != null;
+
+  /// Nomes de glifo desta face que vieram da tabela `post`.
+  ///
+  /// Vazio quando não há `post`, quando ela é versão 3.0 (que declara não ter
+  /// nomes) ou quando os dados não fecham.
+  List<String> get postGlyphNames => _postNames().$1;
+
+  /// Resolve — e memoriza — a tabela `post`.
+  (List<String>, Map<String, int>) _postNames() {
+    if (!_postResolved) {
+      _postResolved = true;
+      final parsed = _parsePostNames(_view, postOffset, postLength, glyphCount);
+      _postGlyphNames = parsed.$1;
+      _postNameToGlyphId = parsed.$2;
+    }
+    return (
+      _postGlyphNames ?? const <String>[],
+      _postNameToGlyphId ?? const <String, int>{},
+    );
+  }
+
+  /// Parser da tabela `post` (OpenType 1.9, §`post`).
+  ///
+  /// Versão 1.0: a fonte declara usar exatamente a ordenação padrão do
+  /// Macintosh, com 258 glifos. Versão 2.0: um índice por glifo, em que
+  /// valores abaixo de 258 apontam para a tabela padrão e valores a partir
+  /// dela indexam a lista de strings Pascal que vem logo depois. Versão 2.5:
+  /// um deslocamento com sinal por glifo sobre a ordenação padrão. Versão
+  /// 3.0 declara explicitamente que não há nomes.
+  static (List<String>, Map<String, int>) _parsePostNames(
+    ByteData view,
+    int offset,
+    int length,
+    int glyphCount,
+  ) {
+    const empty = (<String>[], <String, int>{});
+    if (offset <= 0 || length < 32 || offset + length > view.lengthInBytes) {
+      return empty;
+    }
+    final version = _u32(view, offset);
+
+    List<String> names;
+    if (version == 0x00010000) {
+      final count = glyphCount > 0 && glyphCount < macStandardGlyphNames.length
+          ? glyphCount
+          : macStandardGlyphNames.length;
+      names = macStandardGlyphNames.sublist(0, count);
+    } else if (version == 0x00020000) {
+      if (length < 34) return empty;
+      final numGlyphs = _u16(view, offset + 32);
+      final indexEnd = offset + 34 + numGlyphs * 2;
+      if (numGlyphs == 0 || indexEnd > offset + length) return empty;
+
+      // As strings Pascal vêm em sequência logo após o índice.
+      final pascal = <String>[];
+      var p = indexEnd;
+      final end = offset + length;
+      while (p < end) {
+        final len = view.getUint8(p);
+        if (p + 1 + len > end) break;
+        pascal.add(_decodeLatin1String(view, p + 1, len) ?? '');
+        p += 1 + len;
+      }
+
+      names = List<String>.filled(numGlyphs, '');
+      for (var gid = 0; gid < numGlyphs; gid++) {
+        final index = _u16(view, offset + 34 + gid * 2);
+        if (index < macStandardGlyphNames.length) {
+          names[gid] = macStandardGlyphNames[index];
+        } else {
+          final custom = index - macStandardGlyphNames.length;
+          if (custom < pascal.length) names[gid] = pascal[custom];
+        }
+      }
+    } else if (version == 0x00025000) {
+      if (length < 34) return empty;
+      final numGlyphs = _u16(view, offset + 32);
+      if (numGlyphs == 0 || offset + 34 + numGlyphs > offset + length) {
+        return empty;
+      }
+      names = List<String>.filled(numGlyphs, '');
+      for (var gid = 0; gid < numGlyphs; gid++) {
+        final delta = view.getInt8(offset + 34 + gid);
+        final index = gid + delta;
+        if (index >= 0 && index < macStandardGlyphNames.length) {
+          names[gid] = macStandardGlyphNames[index];
+        }
+      }
+    } else {
+      // 3.0 (e qualquer versão desconhecida): sem nomes.
+      return empty;
+    }
+
+    final nameToGlyphId = <String, int>{};
+    for (var gid = 0; gid < names.length; gid++) {
+      final name = names[gid];
+      if (name.isEmpty) continue;
+      nameToGlyphId.putIfAbsent(name, () => gid);
+    }
+    return (
+      List<String>.unmodifiable(names),
+      Map<String, int>.unmodifiable(nameToGlyphId),
+    );
   }
 
   int mapCodePoint(int codePoint) {
@@ -177,6 +327,16 @@ class BLFontFace {
 
   int glyphAdvanceUnits(int glyphId) {
     if (hmtxOffset <= 0 || hmtxLength < 4 || numHMetrics <= 0) {
+      // Um Type 1 não tem `hmtx`: a largura de avanço faz parte da própria
+      // charstring, via `hsbw`/`sbw` (Black Book §6.3).
+      final t1 = type1;
+      if (t1 != null) {
+        var gid = glyphId;
+        if (gid < 0) gid = 0;
+        if (gid >= t1.glyphCount) gid = t1.glyphCount - 1;
+        final advance = t1.advanceWidthUnits(gid);
+        if (advance > 0) return advance;
+      }
       return unitsPerEm > 0 ? unitsPerEm : 1000;
     }
     int gid = glyphId;
@@ -257,10 +417,17 @@ class BLFontFace {
   ///
   /// Devolve `null` quando o glifo não existe ou a fonte não traz contornos.
   /// Um glifo em branco, como o espaço, devolve um caminho sem vértices.
+  /// [tolerance] é o erro máximo do achatamento de curvas, **em unidades de
+  /// fonte**. O padrão de 0.25 corresponde a um quarto de unidade de em: numa
+  /// fonte de 1000 upem renderizada a 10 pt isso são 0.0025 px, cerca de dez
+  /// vezes mais segmentos do que o necessário. Quem conhece o corpo final deve
+  /// converter — é o que [BLFont.glyphOutline] faz, multiplicando a tolerância
+  /// de saída por `unitsPerEm / size`.
   BLPathData? glyphOutlineUnits(
     int glyphId, {
     int maxCompoundDepth = 16,
     List<double> variationCoordinates = const <double>[],
+    double tolerance = 0.25,
   }) {
     if (glyphCount <= 0) return null;
 
@@ -268,8 +435,10 @@ class BLFontFace {
     if (gid < 0) gid = 0;
     if (gid >= glyphCount) gid = glyphCount - 1;
 
+    final tol = (tolerance.isFinite && tolerance > 0) ? tolerance : 0.25;
     final useDefaultInstance = variationCoordinates.isEmpty;
-    final cached = useDefaultInstance ? _glyphOutlineUnitsCache[gid] : null;
+    final bucket = useDefaultInstance ? _glyphOutlineUnitsCache[tol] : null;
+    final cached = bucket?[gid];
     if (cached != null) return cached;
 
     BLPathData? out;
@@ -284,6 +453,7 @@ class BLFontFace {
         0,
         maxCompoundDepth < 1 ? 1 : maxCompoundDepth,
         decodingStack,
+        tol,
       );
       if (ok) out = path.toPathData();
     } else if (hasCFFOutlines) {
@@ -293,17 +463,28 @@ class BLFontFace {
         cffLength,
         gid,
         variationCoordinates: variationCoordinates,
+        tolerance: tol,
       );
+    } else {
+      out = type1?.decodeGlyph(gid, tolerance: tol);
     }
 
     if (out == null) return null;
 
     if (!useDefaultInstance) return out;
-    if (_glyphOutlineUnitsCache.length >= 2048 &&
-        !_glyphOutlineUnitsCache.containsKey(gid)) {
-      _glyphOutlineUnitsCache.remove(_glyphOutlineUnitsCache.keys.first);
+    final target = _glyphOutlineUnitsCache.putIfAbsent(
+        tol, () => <int, BLPathData>{});
+    // Um consumidor que varre várias tolerâncias não pode fazer o cache
+    // crescer sem limite: os baldes antigos saem junto com as entradas.
+    if (_glyphOutlineUnitsCache.length > 8) {
+      final oldest = _glyphOutlineUnitsCache.keys
+          .firstWhere((key) => key != tol, orElse: () => tol);
+      if (oldest != tol) _glyphOutlineUnitsCache.remove(oldest);
     }
-    _glyphOutlineUnitsCache[gid] = out;
+    if (target.length >= 2048 && !target.containsKey(gid)) {
+      target.remove(target.keys.first);
+    }
+    target[gid] = out;
     return out;
   }
 
@@ -342,6 +523,7 @@ class BLFontFace {
     int depth,
     int maxCompoundDepth,
     Set<int> decodingStack,
+    double tolerance,
   ) {
     if (depth > maxCompoundDepth) return false;
     if (!decodingStack.add(glyphId)) return false;
@@ -368,6 +550,7 @@ class BLFontFace {
                 end,
                 contourCount,
                 transform,
+                tolerance,
               );
             } else if (contourCount == -1) {
               ok = _decodeCompoundGlyphToPath(
@@ -378,6 +561,7 @@ class BLFontFace {
                 depth,
                 maxCompoundDepth,
                 decodingStack,
+                tolerance,
               );
             } else if (contourCount == 0) {
               ok = true;
@@ -400,6 +584,7 @@ class BLFontFace {
     int end,
     int contourCount,
     _BLGlyphTransform transform,
+    double tolerance,
   ) {
     int p = start + 10;
 
@@ -489,6 +674,7 @@ class BLFontFace {
         contourStart,
         contourEnd,
         transform,
+        tolerance,
       );
       contourStart = contourEnd + 1;
     }
@@ -504,6 +690,7 @@ class BLFontFace {
     int depth,
     int maxCompoundDepth,
     Set<int> decodingStack,
+    double tolerance,
   ) {
     int p = start + 10;
     bool hasMore = true;
@@ -573,6 +760,7 @@ class BLFontFace {
         depth + 1,
         maxCompoundDepth,
         decodingStack,
+        tolerance,
       );
       if (!ok) return false;
 
@@ -597,6 +785,7 @@ class BLFontFace {
     int start,
     int end,
     _BLGlyphTransform transform,
+    double tolerance,
   ) {
     final n = end - start + 1;
     if (n <= 0) return;
@@ -659,13 +848,13 @@ class BLFontFace {
       }
 
       if (next.onCurve) {
-        path.quadTo(curr.x, curr.y, next.x, next.y);
+        path.quadTo(curr.x, curr.y, next.x, next.y, tolerance: tolerance);
         idx = (idx + 2) % n;
         processed += 2;
       } else {
         final mx = (curr.x + next.x) * 0.5;
         final my = (curr.y + next.y) * 0.5;
-        path.quadTo(curr.x, curr.y, mx, my);
+        path.quadTo(curr.x, curr.y, mx, my, tolerance: tolerance);
         idx = (idx + 1) % n;
         processed += 1;
       }
@@ -695,6 +884,18 @@ class BLFontFace {
       if (bare != null) return bare;
     }
 
+    // Uma fonte Adobe Type 1 — `/FontFile` num PDF, `.pfa` ou `.pfb` em
+    // disco — também não tem contêiner sfnt: é um programa PostScript com a
+    // parte privada encriptada. Sem este desvio o diretório de tabelas seria
+    // lido de texto ASCII e a face sairia com zero glifos.
+    if (BLType1Font.looksLikeType1(data)) {
+      if (faceIndex != 0) {
+        throw RangeError.index(faceIndex, const [0], 'faceIndex');
+      }
+      final t1 = _parseType1(data, familyName);
+      if (t1 != null) return t1;
+    }
+
     final view = ByteData.sublistView(data);
     final sfntOffset = _sfntOffset(view, faceIndex);
     final tableMap = _readSfntTableDirectory(view, sfntOffset);
@@ -713,6 +914,7 @@ class BLFontFace {
     final cff2Table = tableMap[_tag('CFF2')];
     final gsubTable = tableMap[_tag('GSUB')];
     final gposTable = tableMap[_tag('GPOS')];
+    final postTable = tableMap[_tag('post')];
 
     int unitsPerEm = 1000;
     int indexToLocFormat = 0;
@@ -879,6 +1081,8 @@ class BLFontFace {
       gsubLength: gsubTable?.length ?? 0,
       gposOffset: gposTable?.offset ?? 0,
       gposLength: gposTable?.length ?? 0,
+      postOffset: postTable?.offset ?? 0,
+      postLength: postTable?.length ?? 0,
       kernPairUnits: kernPairUnits,
       cmapMapper: cmapMapper,
     );
@@ -901,6 +1105,91 @@ class BLFontFace {
     return <BLFontFace>[
       for (var i = 0; i < count; i++) parse(data, faceIndex: i)
     ];
+  }
+
+  /// Monta uma face a partir de uma fonte Adobe Type 1.
+  ///
+  /// Tudo sai do próprio programa PostScript: a contagem de glifos do
+  /// `/CharStrings`, o `unitsPerEm` do `/FontMatrix`, o mapeamento de código
+  /// pelo `/Encoding` e as larguras de avanço do `hsbw` de cada charstring.
+  ///
+  /// Devolve `null` se a estrutura não fechar, para o chamador cair de volta
+  /// no caminho sfnt.
+  static BLFontFace? _parseType1(Uint8List data, String? familyName) {
+    final font = BLType1Font.parse(data);
+    if (font == null || font.glyphCount <= 0) return null;
+
+    final upm = font.unitsPerEm;
+
+    // Sem `hhea`/`OS/2`, a FontBBox é a única pista de métrica vertical.
+    var ascender = (upm * 0.8).round();
+    var descender = -(upm * 0.2).round();
+    final bbox = font.fontBBox;
+    if (bbox != null && bbox.length >= 4 && bbox[3] > bbox[1]) {
+      ascender = bbox[3].round();
+      descender = bbox[1].round();
+    }
+
+    final postScriptName = font.fontName;
+    var stripped = postScriptName;
+    if (stripped.length > 7 && stripped[6] == '+') {
+      stripped = stripped.substring(7);
+    }
+    var subfamily = '';
+    final dash = stripped.indexOf('-');
+    if (dash > 0) {
+      subfamily = stripped.substring(dash + 1);
+      stripped = stripped.substring(0, dash);
+    }
+    var resolvedFamily = stripped;
+    if (familyName != null && familyName.trim().isNotEmpty) {
+      resolvedFamily = familyName;
+    }
+    if (resolvedFamily.isEmpty) resolvedFamily = 'Unknown';
+
+    final weightClass = subfamily.toLowerCase().contains('bold') ? 700 : 400;
+
+    return BLFontFace._(
+      familyName: resolvedFamily,
+      subfamilyName: subfamily,
+      fullName: postScriptName,
+      postScriptName: postScriptName,
+      data: Uint8List.fromList(data),
+      unitsPerEm: upm,
+      glyphCount: font.glyphCount,
+      ascender: ascender,
+      descender: descender,
+      lineGap: 0,
+      xHeight: 0,
+      capHeight: 0,
+      weightClass: weightClass,
+      widthClass: 5,
+      useTypographicMetrics: false,
+      indexToLocFormat: 0,
+      locaOffset: 0,
+      locaLength: 0,
+      glyfOffset: 0,
+      glyfLength: 0,
+      hasTrueTypeOutlines: false,
+      hasCFFOutlines: false,
+      cffOffset: 0,
+      cffLength: 0,
+      // As larguras saem do `hsbw` de cada charstring, e não de um `hmtx`:
+      // ver a passagem por [type1] em `glyphAdvanceUnits`.
+      numHMetrics: 0,
+      hmtxOffset: 0,
+      hmtxLength: 0,
+      isSymbolFont: false,
+      gsubOffset: 0,
+      gsubLength: 0,
+      gposOffset: 0,
+      gposLength: 0,
+      kernPairUnits: const <int, int>{},
+      cmapMapper: font.codeToGlyphId.isEmpty
+          ? _BLCmapNone.instance
+          : _BLCffEncoding(font.codeToGlyphId),
+      type1: font,
+    );
   }
 
   /// Monta uma face a partir de um CFF puro, sem sfnt em volta.
@@ -1568,7 +1857,9 @@ class BLFont {
   final BLFontFace face;
   final double size;
   final List<double> variationCoordinates;
-  final Map<int, BLPathData> _glyphOutlineCache = <int, BLPathData>{};
+  /// Cache de contornos escalados, indexado pela tolerância e pelo GID.
+  final Map<double, Map<int, BLPathData>> _glyphOutlineCache =
+      <double, Map<int, BLPathData>>{};
 
   BLFont(this.face, this.size, {this.variationCoordinates = const <double>[]});
 
@@ -1593,22 +1884,35 @@ class BLFont {
     return fontUnits * size / upm;
   }
 
-  BLPathData? glyphOutline(int glyphId) {
+  /// Contorno do glifo já escalado para [size].
+  ///
+  /// [tolerance] é o erro máximo do achatamento de curvas no espaço de SAIDA
+  /// (o mesmo em que ficam as coordenadas devolvidas). O padrão de 0.25 é o
+  /// mesmo do rasterizador; ele é convertido para unidades de fonte antes de
+  /// chegar ao decodificador, para que o número de segmentos acompanhe o
+  /// corpo do texto em vez de ser fixo por unidade de em.
+  BLPathData? glyphOutline(int glyphId, {double tolerance = 0.25}) {
     int gid = glyphId;
     if (gid < 0) gid = 0;
     if (face.glyphCount > 0 && gid >= face.glyphCount) {
       gid = face.glyphCount - 1;
     }
 
-    final cached = _glyphOutlineCache[gid];
+    final tol = (tolerance.isFinite && tolerance > 0) ? tolerance : 0.25;
+    final bucket = _glyphOutlineCache[tol];
+    final cached = bucket?[gid];
     if (cached != null) return cached;
-
-    final unitsPath =
-        face.glyphOutlineUnits(gid, variationCoordinates: variationCoordinates);
-    if (unitsPath == null) return null;
 
     final upm = face.unitsPerEm > 0 ? face.unitsPerEm : 1000;
     final scale = size / upm;
+    final unitsTolerance = scale > 0 ? tol / scale : tol;
+
+    final unitsPath = face.glyphOutlineUnits(
+      gid,
+      variationCoordinates: variationCoordinates,
+      tolerance: unitsTolerance,
+    );
+    if (unitsPath == null) return null;
 
     final src = unitsPath.vertices;
     final dst = List<double>.filled(src.length, 0.0, growable: false);
@@ -1623,11 +1927,16 @@ class BLFont {
           contourCounts == null ? null : List<int>.from(contourCounts),
     );
 
-    if (_glyphOutlineCache.length >= 4096 &&
-        !_glyphOutlineCache.containsKey(gid)) {
-      _glyphOutlineCache.remove(_glyphOutlineCache.keys.first);
+    final target = _glyphOutlineCache.putIfAbsent(tol, () => <int, BLPathData>{});
+    if (_glyphOutlineCache.length > 8) {
+      final oldest =
+          _glyphOutlineCache.keys.firstWhere((key) => key != tol, orElse: () => tol);
+      if (oldest != tol) _glyphOutlineCache.remove(oldest);
     }
-    _glyphOutlineCache[gid] = out;
+    if (target.length >= 4096 && !target.containsKey(gid)) {
+      target.remove(target.keys.first);
+    }
+    target[gid] = out;
     return out;
   }
 
