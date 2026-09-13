@@ -17,6 +17,11 @@ import 'bl_raster_defs.dart';
 /// - Composicao `srcCopy` e `srcOver`.
 class BLAnalyticRasterizer {
   static const int _kCovShift = BLA8Info.kShift;
+
+  /// Meia unidade da escala de cobertura, para arredondar ao inteiro mais
+  /// proximo em vez de truncar. Truncar perdia ate 1/255 de alfa por pixel
+  /// de borda, um vies sistematico que encolhia a area de formas pequenas.
+  static const int _kCovHalf = 1 << (BLA8Info.kShift - 1);
   static const int _kCovOne = BLA8Info.kScale;
   static const int _kMaskWordBits = 32;
 
@@ -283,7 +288,7 @@ class BLAnalyticRasterizer {
     final rowOffset = y * width;
     if (ix0 == ix1) {
       final xAvg = (x0 + x1) * 0.5 - ix0;
-      final areaVal = (distY * (xAvg * _kCovOne)).round() >> _kCovShift;
+      final areaVal = (distY * xAvg).round();
       final idx = rowOffset + ix0;
       _covers[idx] += distY;
       _areas[idx] += areaVal;
@@ -294,7 +299,7 @@ class BLAnalyticRasterizer {
     final dx = x1 - x0;
     if (dx.abs() < 1e-20) {
       final xAvg = (x0 + x1) * 0.5 - ix0;
-      final areaVal = (distY * (xAvg * _kCovOne)).round() >> _kCovShift;
+      final areaVal = (distY * xAvg).round();
       final idx = rowOffset + ix0;
       _covers[idx] += distY;
       _areas[idx] += areaVal;
@@ -319,8 +324,7 @@ class BLAnalyticRasterizer {
       currYFixed = nextYFixed;
 
       final xAvgLocal = (currX0 + borderX) * 0.5 - currIX;
-      final areaValLocal =
-          (distYLocal * (xAvgLocal * _kCovOne)).round() >> _kCovShift;
+      final areaValLocal = (distYLocal * xAvgLocal).round();
 
       final idx = rowOffset + currIX;
       _covers[idx] += distYLocal;
@@ -334,8 +338,7 @@ class BLAnalyticRasterizer {
 
     final distYLocal = distY - consumedDistY;
     final xAvgLocal = (currX0 + x1) * 0.5 - ix1;
-    final areaValLocal =
-        (distYLocal * (xAvgLocal * _kCovOne)).round() >> _kCovShift;
+    final areaValLocal = (distYLocal * xAvgLocal).round();
 
     final idx = rowOffset + ix1;
     _covers[idx] += distYLocal;
@@ -864,7 +867,7 @@ class BLAnalyticRasterizer {
     final mask = absCover >> 31;
     absCover = (absCover ^ mask) - mask;
 
-    int covAlpha = (absCover * 255) >> _kCovShift;
+    int covAlpha = (absCover * 255 + _kCovHalf) >> _kCovShift;
     if (covAlpha <= 0) return 0;
     if (covAlpha > 255) return 255;
     return covAlpha;
@@ -881,7 +884,7 @@ class BLAnalyticRasterizer {
       absCover = (_kCovOne * 2) - absCover;
     }
 
-    int covAlpha = (absCover * 255) >> _kCovShift;
+    int covAlpha = (absCover * 255 + _kCovHalf) >> _kCovShift;
     if (covAlpha <= 0) return 0;
     if (covAlpha > 255) return 255;
     return covAlpha;

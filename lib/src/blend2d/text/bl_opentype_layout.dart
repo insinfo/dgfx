@@ -488,7 +488,15 @@ class _LookupEntry {
 }
 
 /// Parses the lookup list from a GSUB or GPOS table.
-List<_LookupEntry> _parseLookupList(ByteData view, int tableOffset) {
+///
+/// [isGsub] decide qual tipo significa "Extension": 7 no GSUB, 9 no GPOS. A
+/// distinção importa porque GPOS 7 é posicionamento contextual, e tratá-lo
+/// como extensão leria o corpo da subtabela como um cabeçalho de extensão.
+List<_LookupEntry> _parseLookupList(
+  ByteData view,
+  int tableOffset, {
+  required bool isGsub,
+}) {
   if (tableOffset + 10 > view.lengthInBytes) return const [];
 
   final lookupListOffset =
@@ -509,18 +517,28 @@ List<_LookupEntry> _parseLookupList(ByteData view, int tableOffset) {
     final subtableCount = view.getUint16(lookupOff + 4, Endian.big);
     final subtables = <int>[];
 
+    // Uma Extension lookup não tem lógica própria: ela só embrulha subtabelas
+    // que moram longe demais para caber num offset de 16 bits. O tipo REAL
+    // está no cabeçalho da extensão, e é ele que a aplicação tem que ver —
+    // antes o offset era resolvido mas o tipo continuava 7/9, e aí nenhum
+    // ramo do switch casava: uma fonte que usasse Extension (qualquer fonte
+    // grande o bastante, o que inclui as CJK e boa parte das profissionais)
+    // não aplicava substituição nem posicionamento nenhum.
+    final int extensionType = isGsub ? 7 : 9;
+    int effectiveType = lookupType;
+
     for (int s = 0; s < subtableCount; s++) {
       if (lookupOff + 6 + (s + 1) * 2 > view.lengthInBytes) break;
       final stOff =
           lookupOff + view.getUint16(lookupOff + 6 + s * 2, Endian.big);
 
-      // Handle extension lookups (GSUB type 7, GPOS type 9)
-      if ((lookupType == 7 || lookupType == 9) &&
-          stOff + 8 <= view.lengthInBytes) {
+      if (lookupType == extensionType && stOff + 8 <= view.lengthInBytes) {
         final extFormat = view.getUint16(stOff, Endian.big);
         if (extFormat == 1) {
-          final extOffset = stOff + view.getUint32(stOff + 4, Endian.big);
-          subtables.add(extOffset);
+          // A especificação exige que todas as subtabelas de uma mesma
+          // Extension lookup embrulhem o mesmo tipo.
+          effectiveType = view.getUint16(stOff + 2, Endian.big);
+          subtables.add(stOff + view.getUint32(stOff + 4, Endian.big));
           continue;
         }
       }
@@ -528,7 +546,7 @@ List<_LookupEntry> _parseLookupList(ByteData view, int tableOffset) {
       subtables.add(stOff);
     }
 
-    result.add(_LookupEntry(lookupType, lookupFlags, subtables));
+    result.add(_LookupEntry(effectiveType, lookupFlags, subtables));
   }
 
   return result;
@@ -605,10 +623,12 @@ class BLLayoutEngine {
         _gsubLength = gsubLength,
         _gposOffset = gposOffset,
         _gposLength = gposLength {
-    _gsubLookups =
-        _gsubLength > 0 ? _parseLookupList(_view, _gsubOffset) : const [];
-    _gposLookups =
-        _gposLength > 0 ? _parseLookupList(_view, _gposOffset) : const [];
+    _gsubLookups = _gsubLength > 0
+        ? _parseLookupList(_view, _gsubOffset, isGsub: true)
+        : const [];
+    _gposLookups = _gposLength > 0
+        ? _parseLookupList(_view, _gposOffset, isGsub: false)
+        : const [];
   }
 
   /// Whether GSUB data is available.
@@ -644,23 +664,9 @@ class BLLayoutEngine {
       if (li >= _gsubLookups.length) continue;
       final lookup = _gsubLookups[li];
 
-      // Resolve actual type for extension lookups
-      int effectiveType = lookup.lookupType;
-      if (effectiveType == 7) {
-        // Extension: the subtable itself contains the real type
-        // We handle this in the subtable processing below
-      }
-
+      // `lookupType` já vem resolvido: uma Extension lookup foi trocada pelo
+      // tipo que ela embrulha ao parsear a lista.
       for (final stOff in lookup.subtableOffsets) {
-        if (effectiveType == 7 && stOff + 2 <= _view.lengthInBytes) {
-          // The extension already resolved the offset; read the actual type
-          effectiveType = _view.getUint16(stOff, Endian.big);
-          // Actually for extensions we read the real lookup type from the
-          // extension header, but since we resolved offsets in _parseLookupList
-          // we need the type from the extension header.
-          // For simplicity in this bootstrap, we re-read from the original lookup.
-        }
-
         switch (lookup.lookupType) {
           case 1: // SingleSubst
             for (int i = 0; i < result.length; i++) {
@@ -719,8 +725,29 @@ class BLLayoutEngine {
 
   /// Applies GPOS pair positioning to compute x-advance adjustments.
   /// Returns a list of x-advance adjustments (same length as [glyphIds]).
+  ///
+  /// Atalho para quem só quer o avanço; [applyGPOSAdjustments] devolve também
+  /// o deslocamento do desenho do glifo.
   List<int> applyGPOS(List<int> glyphIds, {Set<String>? features}) {
-    final adjustments = List<int>.filled(glyphIds.length, 0);
+    return [
+      for (final a in applyGPOSAdjustments(glyphIds, features: features))
+        a.xAdvance
+    ];
+  }
+
+  /// Aplica GPOS e devolve o ajuste completo de cada glifo, em unidades de
+  /// fonte.
+  ///
+  /// O avanço move o cursor; o *placement* move só o desenho daquele glifo,
+  /// sem mexer no cursor. Os dois já eram lidos das subtabelas, mas o
+  /// placement era descartado — o que apaga acentos deslocados e qualquer
+  /// ajuste vertical que a fonte peça.
+  List<BLGlyphAdjustment> applyGPOSAdjustments(
+    List<int> glyphIds, {
+    Set<String>? features,
+  }) {
+    final adjustments = List<BLGlyphAdjustment>.filled(
+        glyphIds.length, const BLGlyphAdjustment());
     if (_gposLength == 0 || _gposLookups.isEmpty) return adjustments;
 
     final requestedFeatures = features ?? const {'kern'};
@@ -739,7 +766,12 @@ class BLLayoutEngine {
           for (int i = 0; i < glyphIds.length; i++) {
             final adj = _applySingleAdjustment(_view, stOff, glyphIds[i]);
             if (adj != null) {
-              adjustments[i] += adj.xAdvance1;
+              adjustments[i] = adjustments[i].plus(
+                xPlacement: adj.xPlacement1,
+                yPlacement: adj.yPlacement1,
+                xAdvance: adj.xAdvance1,
+                yAdvance: adj.yAdvance1,
+              );
             }
           }
         } else if (lookup.lookupType == 2) {
@@ -748,10 +780,18 @@ class BLLayoutEngine {
             final adj = _applyPairAdjustment(
                 _view, stOff, glyphIds[i], glyphIds[i + 1]);
             if (adj != null) {
-              adjustments[i] += adj.xAdvance1;
-              if (i + 1 < adjustments.length) {
-                adjustments[i + 1] += adj.xAdvance2;
-              }
+              adjustments[i] = adjustments[i].plus(
+                xPlacement: adj.xPlacement1,
+                yPlacement: adj.yPlacement1,
+                xAdvance: adj.xAdvance1,
+                yAdvance: adj.yAdvance1,
+              );
+              adjustments[i + 1] = adjustments[i + 1].plus(
+                xPlacement: adj.xPlacement2,
+                yPlacement: adj.yPlacement2,
+                xAdvance: adj.xAdvance2,
+                yAdvance: adj.yAdvance2,
+              );
             }
           }
         }
@@ -760,4 +800,45 @@ class BLLayoutEngine {
 
     return adjustments;
   }
+}
+
+/// Ajuste de posicionamento aplicado a um glifo, em unidades de fonte.
+///
+/// `xAdvance`/`yAdvance` movem o cursor para o próximo glifo;
+/// `xPlacement`/`yPlacement` movem o desenho deste glifo sem mexer no cursor —
+/// é assim que a fonte encaixa um acento sobre a letra certa.
+class BLGlyphAdjustment {
+  final int xPlacement;
+  final int yPlacement;
+  final int xAdvance;
+  final int yAdvance;
+
+  const BLGlyphAdjustment({
+    this.xPlacement = 0,
+    this.yPlacement = 0,
+    this.xAdvance = 0,
+    this.yAdvance = 0,
+  });
+
+  /// True quando não há nada a aplicar.
+  bool get isZero =>
+      xPlacement == 0 && yPlacement == 0 && xAdvance == 0 && yAdvance == 0;
+
+  /// Soma outro ajuste a este. Lookups distintos acumulam.
+  BLGlyphAdjustment plus({
+    int xPlacement = 0,
+    int yPlacement = 0,
+    int xAdvance = 0,
+    int yAdvance = 0,
+  }) =>
+      BLGlyphAdjustment(
+        xPlacement: this.xPlacement + xPlacement,
+        yPlacement: this.yPlacement + yPlacement,
+        xAdvance: this.xAdvance + xAdvance,
+        yAdvance: this.yAdvance + yAdvance,
+      );
+
+  @override
+  String toString() => 'BLGlyphAdjustment(placement: (\$xPlacement, '
+      '\$yPlacement), advance: (\$xAdvance, \$yAdvance))';
 }

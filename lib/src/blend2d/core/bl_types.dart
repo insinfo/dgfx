@@ -82,9 +82,29 @@ enum BLGradientExtendMode {
   reflect,
 }
 
+/// Como o padrão amostra a imagem de origem.
+///
+/// Os dois primeiros valores dizem respeito à AMPLIAÇÃO — o que fazer quando um
+/// pixel de device cabe dentro de um texel. Na REDUÇÃO, quando um pixel de
+/// device cobre vários texels, nenhum dos dois serve: amostrar um texel (ou
+/// quatro) joga fora a maioria dos pixels de origem e o que sobra vira moiré.
+/// Por isso o fetcher passa sozinho a integrar a área coberta (filtro de caixa)
+/// assim que a matriz indica redução, qualquer que seja o valor escolhido aqui.
+/// Uma digitalização de 300 dpi numa página renderizada a 96 dpi passa
+/// exatamente por esse caminho.
 enum BLPatternFilter {
+  /// Amostra o texel mais próximo ao ampliar. É o padrão porque ampliar sem
+  /// interpolar preserva um código de barras ou uma captura de tela colocada
+  /// em 1:1.
   nearest,
+
+  /// Interpola os quatro texels vizinhos ao ampliar.
   bilinear,
+
+  /// Integra a área coberta sempre que houver redução, e interpola como
+  /// [bilinear] ao ampliar. É o que [nearest] e [bilinear] já fazem na
+  /// redução; existe para quem quer declarar a intenção.
+  box,
 }
 
 /// Matriz afim 2D no mesmo layout do `BLMatrix2D` do Blend2D C++.

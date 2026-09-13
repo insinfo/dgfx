@@ -167,29 +167,69 @@ class BLStroker {
         continue;
       }
 
-      // Ponto de miter (offset do vértice central): k = m * hw / |m|^2
-      final double kx = mx * hw / mLenSq;
-      final double ky = my * hw / mLenSq;
+      // Ponto de miter: interseção das duas retas offset, medida a partir do
+      // vértice. Com np e nn unitárias, ela vale `hw * m / (1 + np.nn)`, e
+      // como |m|^2 = 2 * (1 + np.nn) isso é `2 * hw * m / |m|^2`. O fator 2
+      // estava faltando: o miter saía na METADE da distância correta, o que
+      // encolhia todo contorno fechado (e fazia o limite de miter só disparar
+      // com o dobro do ângulo).
+      final double kx = 2.0 * mx * hw / mLenSq;
+      final double ky = 2.0 * my * hw / mLenSq;
       final double kLenSq = kx * kx + ky * ky;
 
+      // `cross` é o seno do ângulo de giro medido de np para nn. Girar para um
+      // lado abre um vão do lado OPOSTO: quem anda e vira à esquerda deixa a
+      // quina para a direita. Portanto cross > 0 (giro à esquerda) põe o join
+      // no lado B, não no lado A. Estava trocado, e o efeito era o contrário
+      // do pretendido — a quina externa recebia o ponto de miter (que a
+      // encolhia) e o lado de dentro recebia o bevel/round.
       if (cross >= 0.0) {
-        // Vira esquerda: A externo → join; B interno
+        // Vira para o lado de A: B é o externo → join; A é o interno.
+        // Atenção ao sinal: `_addOuterJoin` já multiplica a normal pela
+        // meia-largura recebida, então o lado B quer `-hw` com as normais
+        // ORIGINAIS. Negar os dois se cancelava e devolvia os pontos do lado
+        // A — por isso bevel e round saíam deformados neste ramo.
+        _addOuterJoin(bVerts, px[i], py[i], -hw, npx, npy, nnx, nny, -kx, -ky,
+            kLenSq, miterLimitSq, options.join);
+        _addInnerJoin(aVerts, px[i], py[i], kx, ky);
+      } else {
+        // Vira para o lado de B: A é o externo → join; B é o interno.
         _addOuterJoin(aVerts, px[i], py[i], hw, npx, npy, nnx, nny, kx, ky,
             kLenSq, miterLimitSq, options.join);
         _addInnerJoin(bVerts, px[i], py[i], -kx, -ky);
-      } else {
-        // Vira direita: B externo → join; A interno
-        _addOuterJoin(bVerts, px[i], py[i], -hw, -npx, -npy, -nnx, -nny, -kx,
-            -ky, kLenSq, miterLimitSq, options.join);
-        _addInnerJoin(aVerts, px[i], py[i], kx, ky);
       }
     }
 
     if (isClosed) {
       // Dois polígonos fechados: A (winding +1) e B invertido (winding -1).
       // Preenchimento nonZero produz o stroke anelar.
-      _emitClosedPolygon(aVerts, out);
-      _emitClosedPolygonReversed(bVerts, out);
+      //
+      // Isso só vale enquanto A e B correm no MESMO sentido do contorno, que é
+      // o que acontece quando o contorno encerra área e a meia-largura cabe
+      // dentro dele. Dois casos quebram essa premissa:
+      //
+      //  * contorno fechado degenerado — `m l h S`, que é o que o PyMuPDF
+      //    emite para toda linha: a ida e a volta se cancelam, A e B saem com
+      //    a MESMA geometria percorrida ao contrário, e inverter B alinha os
+      //    dois. O nonZero ainda acusa "dentro", mas o rasterizador analítico
+      //    soma área com sinal e a cobertura PARCIAL das bordas é contada duas
+      //    vezes: uma linha de 1 px saía com cobertura 2 e sem antisserrilhado.
+      //  * meia-largura maior que o contorno — o lado de dentro se inverte e o
+      //    stroke deveria virar um borrão cheio, não um anel.
+      //
+      // Os dois se detectam pelo mesmo sinal: se as áreas de A e B têm sinais
+      // opostos (ou uma delas é nula), não há anel a formar — basta o laço
+      // externo, o de maior área em módulo.
+      final areaA = _signedArea2(aVerts);
+      final areaB = _signedArea2(bVerts);
+      if (areaA * areaB > 0.0) {
+        _emitClosedPolygon(aVerts, out);
+        _emitClosedPolygonReversed(bVerts, out);
+      } else if (areaA.abs() >= areaB.abs()) {
+        _emitClosedPolygon(aVerts, out);
+      } else {
+        _emitClosedPolygonReversed(bVerts, out);
+      }
     } else {
       // Um polígono fechado: A → end_cap → B_reversed → start_cap
       final int na = aVerts.length ~/ 2;
@@ -516,6 +556,23 @@ class BLStroker {
   // ---------------------------------------------------------------------------
   // Utilitários de emissão de polígono no BLPath de saída
   // ---------------------------------------------------------------------------
+
+  /// Dobro da área com sinal do polígono dado por [verts] (x, y intercalados).
+  static double _signedArea2(List<double> verts) {
+    final int n = verts.length ~/ 2;
+    if (n < 3) return 0.0;
+    double acc = 0.0;
+    double xj = verts[(n - 1) * 2];
+    double yj = verts[(n - 1) * 2 + 1];
+    for (int i = 0; i < n; i++) {
+      final xi = verts[i * 2];
+      final yi = verts[i * 2 + 1];
+      acc += (xj * yi) - (xi * yj);
+      xj = xi;
+      yj = yi;
+    }
+    return acc;
+  }
 
   static void _emitClosedPolygon(List<double> verts, BLPath out) {
     final int n = verts.length ~/ 2;

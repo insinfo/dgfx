@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:test/test.dart';
 import 'package:dgfx/dgfx.dart';
 
@@ -355,9 +357,214 @@ void main() {
       );
       final fetcher = BLPatternFetcher(pat);
 
-      // Far outside: should clamp to border
-      expect(fetcher.fetch(100, 0), img.pixels[0 * 4 + 3]);
-      expect(fetcher.fetch(0, 100), img.pixels[3 * 4 + 0]);
+      // Far outside: should clamp to border.
+      //
+      // A matriz escala por 2, isto é, REDUZ: cada pixel de device cobre dois
+      // texels em cada eixo e o fetcher integra a área. Na borda um dos eixos
+      // já colapsou no clamp, então sobra a média dos dois texels do outro.
+      int media2(int p, int q) {
+        int canal(int shift) =>
+            ((((p >>> shift) & 0xFF) + ((q >>> shift) & 0xFF)) / 2).round();
+        return (canal(24) << 24) |
+            (canal(16) << 16) |
+            (canal(8) << 8) |
+            canal(0);
+      }
+
+      expect(fetcher.fetch(100, 0),
+          media2(img.pixels[0 * 4 + 3], img.pixels[1 * 4 + 3]));
+      expect(fetcher.fetch(0, 100),
+          media2(img.pixels[3 * 4 + 0], img.pixels[3 * 4 + 1]));
+    });
+  });
+
+  // Nem nearest nem bilinear servem para REDUZIR: amostrar um texel (ou
+  // quatro) descarta a maioria dos pixels de origem e o que sobra vira moiré.
+  // Isso atinge o consumidor direto — uma digitalização de 300 dpi numa página
+  // renderizada a 96 dpi passa exatamente por aqui.
+  group('BLPatternFetcher - redução', () {
+    BLImage checkerboard(int size) {
+      final img = BLImage(size, size);
+      for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+          img.pixels[y * size + x] =
+              ((x + y) & 1) == 0 ? 0xFF000000 : 0xFFFFFFFF;
+        }
+      }
+      return img;
+    }
+
+    int red(int argb) => (argb >> 16) & 0xFF;
+
+    test('xadrez de 1 px reduzido à metade dá cinza uniforme', () {
+      final img = checkerboard(16);
+      for (final filter in BLPatternFilter.values) {
+        final fetcher = BLPatternFetcher(BLPattern(
+          image: img,
+          filter: filter,
+          transform: BLMatrix2D.scaling(2.0, 2.0),
+        ));
+        for (int y = 0; y < 8; y++) {
+          for (int x = 0; x < 8; x++) {
+            expect(red(fetcher.fetch(x, y)), closeTo(128, 1),
+                reason: '\$filter em (\$x,\$y)');
+          }
+        }
+      }
+    });
+
+    test('o ponto isolado daria preto sólido, não cinza', () {
+      // Prova de que o teste acima mede alguma coisa. Amostrar um texel a cada
+      // dois num xadrez de 1 px cai sempre na mesma fase: o resultado seria
+      // preto chapado, com o xadrez inteiro desaparecido. Esse é o alias que o
+      // filtro de caixa evita — e com uma redução só ligeiramente diferente de
+      // 2x a fase caminha e vira moiré.
+      final img = checkerboard(16);
+      final pontual = <int>[
+        for (int x = 0; x < 8; x++) red(img.pixels[2 * x]),
+      ];
+      expect(pontual.toSet(), <int>{0});
+    });
+
+    test('redução de 4x continua uniforme', () {
+      final img = checkerboard(32);
+      final fetcher = BLPatternFetcher(BLPattern(
+        image: img,
+        transform: BLMatrix2D.scaling(4.0, 4.0),
+      ));
+      for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+          expect(red(fetcher.fetch(x, y)), closeTo(128, 1));
+        }
+      }
+    });
+
+    test('redução só em x deixa as colunas cinzas e as linhas intactas', () {
+      // Faixas verticais de 1 px: reduzir só em x tem que apagá-las.
+      final img = BLImage(16, 4);
+      for (int y = 0; y < 4; y++) {
+        for (int x = 0; x < 16; x++) {
+          img.pixels[y * 16 + x] = (x & 1) == 0 ? 0xFF000000 : 0xFFFFFFFF;
+        }
+      }
+      final fetcher = BLPatternFetcher(BLPattern(
+        image: img,
+        transform: BLMatrix2D.scaling(2.0, 1.0),
+      ));
+      for (int y = 0; y < 4; y++) {
+        for (int x = 0; x < 8; x++) {
+          expect(red(fetcher.fetch(x, y)), closeTo(128, 1));
+        }
+      }
+    });
+
+    test('1:1 e ampliação não passam pelo filtro de caixa', () {
+      final img = checkerboard(8);
+      final identidade = BLPatternFetcher(BLPattern(image: img));
+      for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+          expect(identidade.fetch(x, y), img.pixels[y * 8 + x]);
+        }
+      }
+
+      // Ampliar em 2x com nearest continua devolvendo o texel exato.
+      final ampliado = BLPatternFetcher(BLPattern(
+        image: img,
+        transform: BLMatrix2D.scaling(0.5, 0.5),
+      ));
+      expect(ampliado.fetch(0, 0), img.pixels[0]);
+      expect(ampliado.fetch(1, 0), img.pixels[0]);
+      expect(ampliado.fetch(2, 0), img.pixels[1]);
+    });
+
+    test('rotação pura não dispara o filtro', () {
+      // Determinante 1 e nenhuma redução: girar não deve borrar.
+      final img = checkerboard(8);
+      final fetcher = BLPatternFetcher(BLPattern(
+        image: img,
+        transform: BLMatrix2D.rotation(math.pi / 2),
+      ));
+      final v = fetcher.fetch(3, 3);
+      expect(red(v) == 0 || red(v) == 255, isTrue);
+    });
+
+    // Um ladrilho de PDF é rasterizado num bitmap de tamanho inteiro e depois
+    // remapeado, o que dá fatores como 1,07 sem que ninguém tenha pedido
+    // redução. Borrar as bordas do ladrilho aí é regressão: a célula tem que
+    // sair idêntica ao bitmap de origem.
+    test('ladrilho repetido em 1:1 sai idêntico ao bitmap de origem', () {
+      final img = checkerboard(8);
+      for (final filter in BLPatternFilter.values) {
+        final fetcher = BLPatternFetcher(BLPattern(
+          image: img,
+          filter: filter,
+          extendModeX: BLGradientExtendMode.repeat,
+          extendModeY: BLGradientExtendMode.repeat,
+        ));
+        for (int y = 0; y < 24; y++) {
+          for (int x = 0; x < 24; x++) {
+            if (filter == BLPatternFilter.nearest) {
+              expect(fetcher.fetch(x, y), img.pixels[(y % 8) * 8 + (x % 8)],
+                  reason: '\$filter em (\$x,\$y)');
+            } else {
+              // Bilinear em 1:1 e offset inteiro cai sobre o texel exato.
+              expect(fetcher.fetch(x, y), img.pixels[(y % 8) * 8 + (x % 8)],
+                  reason: '\$filter em (\$x,\$y)');
+            }
+          }
+        }
+      }
+    });
+
+    test('eixo y invertido em 1:1 não desloca um texel', () {
+      // O ladrilho de PDF chega com m11 negativo. O caminho de caixa é
+      // ancorado para frente justamente para casar com o `floor` do nearest.
+      final img = BLImage(4, 4);
+      for (int i = 0; i < 16; i++) {
+        img.pixels[i] = 0xFF000000 | (i * 0x010101);
+      }
+      final espelhado = BLPatternFetcher(BLPattern(
+        image: img,
+        extendModeX: BLGradientExtendMode.repeat,
+        extendModeY: BLGradientExtendMode.repeat,
+        transform: const BLMatrix2D(1.0, 0.0, 0.0, -1.0, 0.0, 4.0),
+      ));
+      for (int y = 0; y < 4; y++) {
+        for (int x = 0; x < 4; x++) {
+          final sy = (4 - y) % 4;
+          expect(espelhado.fetch(x, y), img.pixels[sy * 4 + x],
+              reason: '(\$x,\$y)');
+        }
+      }
+    });
+
+    test('redução marginal não liga o filtro', () {
+      // 1,07x é o que sobra de rasterizar um ladrilho em tamanho inteiro; não
+      // é redução de verdade e não pode borrar.
+      final img = checkerboard(8);
+      final fetcher = BLPatternFetcher(BLPattern(
+        image: img,
+        extendModeX: BLGradientExtendMode.repeat,
+        extendModeY: BLGradientExtendMode.repeat,
+        transform: const BLMatrix2D(8 / 7.5, 0.0, 0.0, 1.0, 0.0, 0.0),
+      ));
+      for (int x = 0; x < 16; x++) {
+        final v = red(fetcher.fetch(x, 0));
+        expect(v == 0 || v == 255, isTrue, reason: 'x=\$x deu \$v');
+      }
+    });
+
+    test('a média respeita o alfa junto com a cor', () {
+      final img = BLImage(2, 1);
+      img.pixels[0] = 0x00000000;
+      img.pixels[1] = 0xFFFFFFFF;
+      final fetcher = BLPatternFetcher(BLPattern(
+        image: img,
+        transform: BLMatrix2D.scaling(2.0, 1.0),
+      ));
+      final v = fetcher.fetch(0, 0);
+      expect((v >> 24) & 0xFF, closeTo(128, 1));
+      expect(red(v), closeTo(128, 1));
     });
   });
 }

@@ -127,6 +127,19 @@ class BLPath {
 
   static const int _maxCurveDepth = 16;
 
+  /// Folga aplicada ao criterio de parada da subdivisao.
+  ///
+  /// A folha do achatamento nao emite a corda crua: emite o vertice que
+  /// preserva a area (veja [_emitLeaf]). Isso divide por 3 o desvio maximo
+  /// entre a polilinha e a curva — a corda erra `s` (a flecha do arco), a
+  /// polilinha compensada erra `s/3`. Logo da para parar de subdividir com 3x
+  /// mais folga e ainda assim entregar o desvio que a tolerancia promete,
+  /// gastando ~1.7x menos folhas. Como cada folha custa 2 vertices em vez de
+  /// 1, o total fica proximo do que era antes da compensacao.
+  static const double _leafToleranceGain = 3.0;
+  static const double _leafToleranceGainSq =
+      _leafToleranceGain * _leafToleranceGain;
+
   /// Tolerância padrão, a mesma que este path usava quando achatava na
   /// construção.
   static const double defaultFlattenTolerance = 0.25;
@@ -641,6 +654,112 @@ class BLPath {
     return d1 > d2 ? d1 : d2;
   }
 
+  /// Emite a folha do achatamento preservando a area que a curva encerra.
+  ///
+  /// Uma polilinha *inscrita* na curva sempre encerra menos area do que ela: o
+  /// deficit de cada corda e a area da lasca entre a corda e o arco. Somado ao
+  /// longo de um circulo isso da um erro relativo de `(4/3) * tol / r`, que
+  /// para raios pequenos passa de 10% — um circulo de raio 2 px rasterizava com
+  /// area 11,31 em vez de 12,57. Nao e erro do rasterizador (um retangulo
+  /// alinhado da a area exata), e do achatamento.
+  ///
+  /// A correcao emite, antes do ponto final, um vertice [mx], [my] escolhido
+  /// para que o triangulo `(P0, M, P1)` tenha exatamente a area [area] da
+  /// lasca. Com isso a area do poligono resultante e *identica* a area
+  /// encerrada pela curva, em qualquer nivel de subdivisao. M fica sobre a
+  /// mediatriz da corda, a altura `2*area/|corda|` — cerca de 4/3 da flecha do
+  /// arco, ou seja um pouco alem do meio do arco. De quebra o desvio maximo da
+  /// polilinha em relacao a curva cai de `s` para `s/3`.
+  @pragma('vm:prefer-inline')
+  static void _emitLeaf(
+    _FlattenSink sink,
+    double x0,
+    double y0,
+    double x1,
+    double y1,
+    double area,
+  ) {
+    final dx = x1 - x0;
+    final dy = y1 - y0;
+    final lenSq = dx * dx + dy * dy;
+    // Corda degenerada (laco fechado sobre si) ou lasca desprezivel em relacao
+    // ao tamanho da corda: nao vale um vertice a mais.
+    if (lenSq > 0.0 && 4.0 * area * area > 1e-12 * lenSq * lenSq) {
+      final f = 2.0 * area / lenSq;
+      sink.lineTo((x0 + x1) * 0.5 + f * dy, (y0 + y1) * 0.5 - f * dx);
+    }
+    sink.lineTo(x1, y1);
+  }
+
+  /// Area (com sinal) entre a quadratica e a corda `P0 -> P1`.
+  ///
+  /// Vale exatamente 2/3 da area do triangulo `(P0, C, P1)`.
+  @pragma('vm:prefer-inline')
+  static double _quadChordArea(
+    double x0,
+    double y0,
+    double cx,
+    double cy,
+    double x1,
+    double y1,
+  ) {
+    final ax = cx - x0, ay = cy - y0;
+    final bx = x1 - x0, by = y1 - y0;
+    return (ax * by - ay * bx) / 3.0;
+  }
+
+  /// Area (com sinal) entre a cubica e a corda `P0 -> P1`.
+  ///
+  /// `A = 3/20 * [cross(a,b) + cross(a,c) + 2*cross(b,c)]`, com `a = C1 - P0`,
+  /// `b = C2 - P0` e `c = P1 - P0`. Sai de integrar `1/2 * cross(B, B')` sobre
+  /// a base de Bernstein.
+  @pragma('vm:prefer-inline')
+  static double _cubicChordArea(
+    double x0,
+    double y0,
+    double c1x,
+    double c1y,
+    double c2x,
+    double c2y,
+    double x1,
+    double y1,
+  ) {
+    final ax = c1x - x0, ay = c1y - y0;
+    final bx = c2x - x0, by = c2y - y0;
+    final cx = x1 - x0, cy = y1 - y0;
+    final ab = ax * by - ay * bx;
+    final ac = ax * cy - ay * cx;
+    final bc = bx * cy - by * cx;
+    return 0.15 * (ab + ac + 2.0 * bc);
+  }
+
+  /// Quadrado do ganho de tolerancia aplicavel a esta cubica.
+  ///
+  /// O ganho so se justifica quando a compensacao de area realmente encolhe o
+  /// desvio, e isso exige que a curva nao troque de lado da corda. Se os dois
+  /// pontos de controle estao do mesmo lado (curva convexa no trecho), a
+  /// lasca tem um sinal so e o vertice compensado cai no meio dela. Num
+  /// trecho em S as duas metades se cancelam na area e o vertice compensado
+  /// volta para cima da corda, sem reduzir desvio nenhum — ai vale a
+  /// tolerancia crua.
+  @pragma('vm:prefer-inline')
+  static double _cubicToleranceGainSq(
+    double x0,
+    double y0,
+    double c1x,
+    double c1y,
+    double c2x,
+    double c2y,
+    double x1,
+    double y1,
+  ) {
+    final dx = x1 - x0;
+    final dy = y1 - y0;
+    final s1 = dx * (c1y - y0) - dy * (c1x - x0);
+    final s2 = dx * (c2y - y0) - dy * (c2x - x0);
+    return s1 * s2 >= 0.0 ? _leafToleranceGainSq : 1.0;
+  }
+
   static void _flattenQuad(
     _FlattenSink sink,
     double x0,
@@ -652,9 +771,13 @@ class BLPath {
     double tolSq,
     int depth,
   ) {
+    // Uma quadratica nunca tem inflexao: o ponto de controle esta sempre do
+    // mesmo lado da corda, entao a compensacao de area sempre reduz o desvio e
+    // o ganho de tolerancia vale integralmente.
     if (depth >= _maxCurveDepth ||
-        _quadFlatnessSq(x0, y0, cx, cy, x1, y1) <= tolSq) {
-      sink.lineTo(x1, y1);
+        _quadFlatnessSq(x0, y0, cx, cy, x1, y1) <=
+            tolSq * _leafToleranceGainSq) {
+      _emitLeaf(sink, x0, y0, x1, y1, _quadChordArea(x0, y0, cx, cy, x1, y1));
       return;
     }
 
@@ -683,8 +806,10 @@ class BLPath {
     int depth,
   ) {
     if (depth >= _maxCurveDepth ||
-        _cubicFlatnessSq(x0, y0, c1x, c1y, c2x, c2y, x1, y1) <= tolSq) {
-      sink.lineTo(x1, y1);
+        _cubicFlatnessSq(x0, y0, c1x, c1y, c2x, c2y, x1, y1) <=
+            tolSq * _cubicToleranceGainSq(x0, y0, c1x, c1y, c2x, c2y, x1, y1)) {
+      _emitLeaf(sink, x0, y0, x1, y1,
+          _cubicChordArea(x0, y0, c1x, c1y, c2x, c2y, x1, y1));
       return;
     }
 

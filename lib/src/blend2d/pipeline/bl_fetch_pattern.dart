@@ -28,6 +28,34 @@ class BLPatternFetcher {
   final int _dxFxFp;
   final int _dxFyFp;
 
+  // --- Filtro de redução (box) ---
+  //
+  // A matriz do padrão leva o pixel de DEVICE de volta à origem, então o
+  // quadrado [x, x+1) x [y, y+1) do device vira um paralelogramo de lados
+  // (m00, m10) e (m01, m11) no espaço da imagem. Guardamos a LARGURA da caixa
+  // envolvente desse paralelogramo em cada eixo. Quando ela passa de um texel
+  // há redução, e amostrar um ponto (ou quatro) descarta a maior parte da
+  // origem — é daí que vem o moiré de uma digitalização encolhida. Nesse caso
+  // integramos a área coberta.
+  //
+  // A janela é ancorada PARA FRENTE a partir do ponto amostrado, `[f, f+span)`,
+  // e não no sentido em que a matriz anda. É a mesma convenção do caminho
+  // nearest, que pega `floor(f)`: com span 1 os dois coincidem exatamente,
+  // inclusive quando o eixo está invertido (m11 < 0, o caso de todo ladrilho
+  // de PDF). Ancorar no sentido da matriz deslocava um texel nesse caso.
+  final double _boxSpanX;
+  final double _boxSpanY;
+
+  /// True quando a matriz reduz em algum eixo, e portanto o filtro de caixa
+  /// vale mais que o filtro escolhido.
+  final bool _useBox;
+
+  /// Teto de amostras por eixo. Acima disso o laço anda de [stepX] em
+  /// [stepX] texels, cada amostra valendo pelo grupo que representa: numa
+  /// redução extrema 64 amostras por eixo já não deixam moiré nenhum, e o
+  /// custo por pixel fica limitado.
+  static const int _maxBoxSamples = 64;
+
   // --- C++ affine context parameters (ox/oy/rx/ry/corx/cory port) ---
   final BLGradientExtendMode _extX;
   final BLGradientExtendMode _extY;
@@ -91,7 +119,39 @@ class BLPatternFetcher {
         _canFastAdvX = _checkFastAdv((pattern.transform.m00 * _fpOne).round(),
             _computePeriodFp(pattern.image.width, pattern.extendModeX)),
         _canFastAdvY = _checkFastAdv((pattern.transform.m10 * _fpOne).round(),
-            _computePeriodFp(pattern.image.height, pattern.extendModeY));
+            _computePeriodFp(pattern.image.height, pattern.extendModeY)),
+        _boxSpanX = pattern.transform.m00.abs() + pattern.transform.m01.abs(),
+        _boxSpanY = pattern.transform.m10.abs() + pattern.transform.m11.abs(),
+        _useBox = _isReducing(pattern.transform);
+
+  /// Redução mínima para que o filtro de caixa valha a pena.
+  ///
+  /// Abaixo disso a amostragem por ponto ainda visita quase todos os texels e
+  /// não há alias a combater — mas há nitidez a perder. E o limite tem um caso
+  /// concreto a respeitar: um ladrilho de PDF é rasterizado num bitmap de
+  /// tamanho inteiro (`ceil`) e depois remapeado, o que dá fatores como 1,07
+  /// sem que ninguém tenha pedido redução alguma; borrar as bordas do ladrilho
+  /// aí seria uma regressão. A partir de 1,5 a amostragem por ponto já joga
+  /// fora um terço da origem, e é quando o moiré aparece — uma digitalização
+  /// de 300 dpi numa página a 96 dpi cai em 3,1.
+  static const double _minReductionForBox = 1.5;
+
+  /// True quando um passo de um pixel no device anda bem mais de um texel na
+  /// origem, em alguma direção.
+  ///
+  /// O critério é o comprimento das COLUNAS da matriz — o quanto a origem
+  /// caminha quando o device anda um pixel em x, e quando anda um pixel em y —
+  /// e não o determinante nem a caixa envolvente. O determinante não vê uma
+  /// matriz que achata só num eixo (determinante pequeno, mas metade da imagem
+  /// jogada fora num eixo só). A caixa envolvente acusaria redução numa
+  /// rotação pura de 45 graus, que não reduz nada: ali as duas colunas têm
+  /// comprimento 1 e a imagem só gira.
+  static bool _isReducing(BLMatrix2D m) {
+    final colX = m.m00 * m.m00 + m.m10 * m.m10;
+    final colY = m.m01 * m.m01 + m.m11 * m.m11;
+    const limit = _minReductionForBox * _minReductionForBox;
+    return colX > limit || colY > limit;
+  }
 
   /// Tile period in fixed-point: 0 for pad, w*fpOne for repeat, 2*w*fpOne for reflect.
   static int _computePeriodFp(int size, BLGradientExtendMode mode) {
@@ -109,10 +169,87 @@ class BLPatternFetcher {
 
   @pragma('vm:prefer-inline')
   int fetch(int x, int y) {
+    if (_useBox) {
+      return _fetchBox(x, y);
+    }
     if (_filter == BLPatternFilter.nearest) {
       return _fetchNearest(x, y);
     }
     return _fetchBilinear(x, y);
+  }
+
+  /// Média da imagem sobre a área que este pixel de device cobre.
+  ///
+  /// Cada texel entra com o seu quinhão de sobreposição com a caixa, então o
+  /// resultado é a média de área de verdade: um xadrez de 1 px reduzido à
+  /// metade dá cinza uniforme, e não o padrão que o ponto isolado inventaria.
+  int _fetchBox(int x, int y) {
+    final fx = _m00 * x + _m01 * y + _m20 - _offsetX;
+    final fy = _m10 * x + _m11 * y + _m21 - _offsetY;
+
+    final ax0 = fx;
+    final ax1 = fx + _boxSpanX;
+    final ay0 = fy;
+    final ay1 = fy + _boxSpanY;
+
+    final ix0 = ax0.floor();
+    final ix1 = ax1.ceil();
+    final iy0 = ay0.floor();
+    final iy1 = ay1.ceil();
+
+    final nx = ix1 - ix0;
+    final ny = iy1 - iy0;
+    final stepX = nx <= _maxBoxSamples ? 1 : (nx + _maxBoxSamples - 1) ~/ _maxBoxSamples;
+    final stepY = ny <= _maxBoxSamples ? 1 : (ny + _maxBoxSamples - 1) ~/ _maxBoxSamples;
+
+    double sumA = 0.0, sumR = 0.0, sumG = 0.0, sumB = 0.0, sumW = 0.0;
+
+    for (int iy = iy0; iy < iy1; iy += stepY) {
+      final double top = iy > ay0 ? iy.toDouble() : ay0;
+      final double bottomEdge = (iy + stepY).toDouble();
+      final double bottom = bottomEdge < ay1 ? bottomEdge : ay1;
+      final double wy = bottom - top;
+      if (wy <= 0.0) continue;
+
+      final sy = _periodYFp > 0
+          ? _indexFromNorm(iy, _h, _extY)
+          : _applyExtend(iy, _h, _extY);
+      if (sy < 0) continue;
+      final row = sy * _w;
+
+      for (int ix = ix0; ix < ix1; ix += stepX) {
+        final double left = ix > ax0 ? ix.toDouble() : ax0;
+        final double rightEdge = (ix + stepX).toDouble();
+        final double right = rightEdge < ax1 ? rightEdge : ax1;
+        final double wx = right - left;
+        if (wx <= 0.0) continue;
+
+        final sx = _periodXFp > 0
+            ? _indexFromNorm(ix, _w, _extX)
+            : _applyExtend(ix, _w, _extX);
+        if (sx < 0) continue;
+
+        final w = wx * wy;
+        final px = _pixels[row + sx];
+        sumA += ((px >>> 24) & 0xFF) * w;
+        sumR += ((px >>> 16) & 0xFF) * w;
+        sumG += ((px >>> 8) & 0xFF) * w;
+        sumB += (px & 0xFF) * w;
+        sumW += w;
+      }
+    }
+
+    if (sumW <= 0.0) return 0;
+    final inv = 1.0 / sumW;
+    int clamp255(double v) {
+      final i = (v * inv).round();
+      return i < 0 ? 0 : (i > 255 ? 255 : i);
+    }
+
+    return (clamp255(sumA) << 24) |
+        (clamp255(sumR) << 16) |
+        (clamp255(sumG) << 8) |
+        clamp255(sumB);
   }
 
   @pragma('vm:prefer-inline')

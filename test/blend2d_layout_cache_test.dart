@@ -105,6 +105,138 @@ void _w16(BytesBuilder b, int value) {
   b.addByte(value & 0xFF);
 }
 
+
+// ============================================================================
+// Helper genérico: embrulha uma subtabela num GSUB/GPOS mínimo, opcionalmente
+// dentro de uma Extension lookup.
+// ============================================================================
+
+Uint8List _coverageF1(List<int> glyphs) {
+  final sorted = List<int>.from(glyphs)..sort();
+  final b = BytesBuilder();
+  _w16(b, 1);
+  _w16(b, sorted.length);
+  for (final g in sorted) {
+    _w16(b, g);
+  }
+  return b.toBytes();
+}
+
+/// GPOS SingleAdjustment formato 1: um único ValueRecord para toda a cobertura.
+Uint8List _gposSingleAdjF1(
+  List<int> glyphs, {
+  int xPlacement = 0,
+  int yPlacement = 0,
+  int xAdvance = 0,
+  int yAdvance = 0,
+}) {
+  int valueFormat = 0;
+  final values = <int>[];
+  if (xPlacement != 0) {
+    valueFormat |= 0x01;
+    values.add(xPlacement);
+  }
+  if (yPlacement != 0) {
+    valueFormat |= 0x02;
+    values.add(yPlacement);
+  }
+  if (xAdvance != 0) {
+    valueFormat |= 0x04;
+    values.add(xAdvance);
+  }
+  if (yAdvance != 0) {
+    valueFormat |= 0x08;
+    values.add(yAdvance);
+  }
+
+  final cov = _coverageF1(glyphs);
+  final b = BytesBuilder();
+  _w16(b, 1); // posFormat
+  _w16(b, 6 + values.length * 2); // coverageOffset, logo depois do ValueRecord
+  _w16(b, valueFormat);
+  for (final v in values) {
+    _w16(b, v & 0xFFFF);
+  }
+  b.add(cov);
+  return b.toBytes();
+}
+
+/// GSUB SingleSubst formato 1 (delta).
+Uint8List _gsubSingleSubstF1b(List<int> glyphs, int delta) {
+  final cov = _coverageF1(glyphs);
+  final b = BytesBuilder();
+  _w16(b, 1); // substFormat
+  _w16(b, 6); // coverageOffset
+  _w16(b, delta & 0xFFFF);
+  b.add(cov);
+  return b.toBytes();
+}
+
+/// Embrulha [subtable] num ExtensionSubstFormat1 / ExtensionPosFormat1.
+Uint8List _wrapExtension(int realType, Uint8List subtable) {
+  final b = BytesBuilder();
+  _w16(b, 1); // extensionFormat
+  _w16(b, realType); // extensionLookupType
+  // extensionOffset: uint32 a partir do início desta subtabela.
+  b.addByte(0);
+  b.addByte(0);
+  b.addByte(0);
+  b.addByte(8);
+  b.add(subtable);
+  return b.toBytes();
+}
+
+ByteData _buildLayoutTable({
+  required String featureTag,
+  required int lookupType,
+  required Uint8List subtable,
+}) {
+  final lookup = BytesBuilder();
+  _w16(lookup, lookupType);
+  _w16(lookup, 0); // lookupFlags
+  _w16(lookup, 1); // subtableCount
+  _w16(lookup, 8); // subtableOffset
+  lookup.add(subtable);
+  final lookupData = lookup.toBytes();
+
+  final lookupList = BytesBuilder();
+  _w16(lookupList, 1);
+  _w16(lookupList, 4);
+  lookupList.add(lookupData);
+  final lookupListData = lookupList.toBytes();
+
+  final featureTable = BytesBuilder();
+  _w16(featureTable, 0); // featureParamsOffset
+  _w16(featureTable, 1); // lookupCount
+  _w16(featureTable, 0); // lookupIndex
+  final featureTableData = featureTable.toBytes();
+
+  final featureList = BytesBuilder();
+  _w16(featureList, 1);
+  featureList.add(featureTag.codeUnits);
+  _w16(featureList, 8);
+  featureList.add(featureTableData);
+  final featureListData = featureList.toBytes();
+
+  final scriptListData = Uint8List.fromList([0, 0]); // scriptCount = 0
+
+  const headerSize = 10;
+  final scriptListOffset = headerSize;
+  final featureListOffset = scriptListOffset + scriptListData.length;
+  final lookupListOffset = featureListOffset + featureListData.length;
+
+  final out = BytesBuilder();
+  _w16(out, 0x0001);
+  _w16(out, 0x0000);
+  _w16(out, scriptListOffset);
+  _w16(out, featureListOffset);
+  _w16(out, lookupListOffset);
+  out.add(scriptListData);
+  out.add(featureListData);
+  out.add(lookupListData);
+  return ByteData.sublistView(out.toBytes());
+}
+
 void main() {
   // =========================================================================
   // BLLayoutEngine tests
@@ -174,6 +306,105 @@ void main() {
 
       final adj = engine.applyGPOS([1, 2, 3]);
       expect(adj, [0, 0, 0]);
+    });
+
+    // Uma Extension lookup não faz nada sozinha: ela só diz onde mora a
+    // subtabela de verdade, e de que tipo ela é. O tipo efetivo era calculado
+    // e DESCARTADO, então o switch recebia 7 (GSUB) ou 9 (GPOS) e nenhuma
+    // fonte que usasse Extension aplicava coisa alguma.
+    test('GSUB dentro de uma Extension lookup (tipo 7) é aplicado', () {
+      final data = _buildLayoutTable(
+        featureTag: 'liga',
+        lookupType: 7,
+        subtable: _wrapExtension(1, _gsubSingleSubstF1b([65, 67], 1)),
+      );
+      final engine = BLLayoutEngine(
+        data,
+        gsubOffset: 0,
+        gsubLength: data.lengthInBytes,
+        gposOffset: 0,
+        gposLength: 0,
+      );
+      expect(engine.applyGSUB([65, 70, 67], features: {'liga'}), [66, 70, 68]);
+    });
+
+    test('GPOS dentro de uma Extension lookup (tipo 9) é aplicado', () {
+      final data = _buildLayoutTable(
+        featureTag: 'kern',
+        lookupType: 9,
+        subtable: _wrapExtension(1, _gposSingleAdjF1([10], xAdvance: -40)),
+      );
+      final engine = BLLayoutEngine(
+        data,
+        gsubOffset: 0,
+        gsubLength: 0,
+        gposOffset: 0,
+        gposLength: data.lengthInBytes,
+      );
+      expect(engine.applyGPOS([10, 11], features: {'kern'}), [-40, 0]);
+    });
+
+    test('GPOS tipo 7 não é confundido com Extension', () {
+      // No GPOS, 7 é posicionamento contextual, não extensão — ler o corpo da
+      // subtabela como cabeçalho de extensão daria um offset qualquer.
+      final data = _buildLayoutTable(
+        featureTag: 'kern',
+        lookupType: 7,
+        subtable: _gposSingleAdjF1([10], xAdvance: -40),
+      );
+      final engine = BLLayoutEngine(
+        data,
+        gsubOffset: 0,
+        gsubLength: 0,
+        gposOffset: 0,
+        gposLength: data.lengthInBytes,
+      );
+      // Contextual ainda não é suportado: o resultado é zero, nunca lixo.
+      expect(engine.applyGPOS([10, 11], features: {'kern'}), [0, 0]);
+    });
+
+    // O placement move o desenho do glifo sem mexer no cursor. Era lido das
+    // subtabelas e jogado fora.
+    test('GPOS aplica xPlacement e yPlacement, além do avanço', () {
+      final data = _buildLayoutTable(
+        featureTag: 'kern',
+        lookupType: 1,
+        subtable: _gposSingleAdjF1(
+          [10],
+          xPlacement: 25,
+          yPlacement: -60,
+          xAdvance: -40,
+          yAdvance: 7,
+        ),
+      );
+      final engine = BLLayoutEngine(
+        data,
+        gsubOffset: 0,
+        gsubLength: 0,
+        gposOffset: 0,
+        gposLength: data.lengthInBytes,
+      );
+
+      final adj = engine.applyGPOSAdjustments([10, 11], features: {'kern'});
+      expect(adj[0].xPlacement, 25);
+      expect(adj[0].yPlacement, -60);
+      expect(adj[0].xAdvance, -40);
+      expect(adj[0].yAdvance, 7);
+      expect(adj[1].isZero, isTrue);
+
+      // O atalho antigo continua devolvendo só o avanço.
+      expect(engine.applyGPOS([10, 11], features: {'kern'}), [-40, 0]);
+    });
+
+    test('ajustes de lookups diferentes se acumulam', () {
+      const a = BLGlyphAdjustment(xPlacement: 1, xAdvance: 2);
+      final b = a.plus(xPlacement: 10, yPlacement: -3, yAdvance: 4);
+      expect(b.xPlacement, 11);
+      expect(b.yPlacement, -3);
+      expect(b.xAdvance, 2);
+      expect(b.yAdvance, 4);
+      expect(const BLGlyphAdjustment().isZero, isTrue);
+      expect(b.isZero, isFalse);
     });
   });
 

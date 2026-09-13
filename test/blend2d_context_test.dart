@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:dgfx/dgfx.dart';
@@ -295,6 +296,82 @@ void main() {
       final source = Uint32List(8); // wrong size
 
       expect(() => img.copyFrom(source), throwsArgumentError);
+    });
+  });
+
+  // Cobertura rasterizada = área da forma. O retângulo alinhado sempre deu a
+  // área exata; a borda curva é que saía até 10% menor, porque o achatamento
+  // produzia uma poligonal inscrita.
+  group('BLContext - área coberta', () {
+    double coverage(BLImage img) {
+      double sum = 0.0;
+      for (int i = 0; i < img.pixels.length; i++) {
+        sum += (255 - ((img.pixels[i] >> 16) & 0xFF)) / 255.0;
+      }
+      return sum;
+    }
+
+    Future<double> painted(
+        int size, Future<void> Function(BLContext) draw) async {
+      final img = BLImage(size, size);
+      final ctx = BLContext(img)..clear(0xFFFFFFFF);
+      await draw(ctx);
+      ctx.flush();
+      final area = coverage(img);
+      await ctx.dispose();
+      return area;
+    }
+
+    test('retângulo alinhado cobre exatamente a sua área', () async {
+      expect(await painted(16, (ctx) => ctx.fillRect(4, 4, 4, 4, color: 0xFF000000)),
+          closeTo(16.0, 1e-9));
+      expect(await painted(32, (ctx) => ctx.fillRect(2, 3, 20, 11, color: 0xFF000000)),
+          closeTo(220.0, 1e-9));
+    });
+
+    test('círculo cobre pi*r^2 a menos de 0,5%, de r=1 a r=64', () async {
+      for (final r in <double>[1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64]) {
+        final size = (r * 2).ceil() + 8;
+        final c = size / 2.0;
+        final got = await painted(
+            size, (ctx) => ctx.fillCircle(c, c, r, color: 0xFF000000));
+        final exact = math.pi * r * r;
+        expect(got, closeTo(exact, exact * 0.005),
+            reason: 'raio \$r: \$got vs \$exact');
+      }
+    });
+
+    test('elipse cobre pi*rx*ry a menos de 0,5%', () async {
+      for (final radii in <List<double>>[
+        [2, 4],
+        [4, 2],
+        [8, 16],
+        [30, 10],
+        [64, 16],
+      ]) {
+        final rx = radii[0], ry = radii[1];
+        final size = (2 * math.max(rx, ry)).ceil() + 8;
+        final c = size / 2.0;
+        final got = await painted(
+            size, (ctx) => ctx.fillEllipse(c, c, rx, ry, color: 0xFF000000));
+        final exact = math.pi * rx * ry;
+        expect(got, closeTo(exact, exact * 0.005), reason: 'rx=\$rx ry=\$ry');
+      }
+    });
+
+    test('quarto de círculo cobre pi*r^2/4 a menos de 0,5%', () async {
+      for (final r in <double>[2, 4, 8, 16, 32, 64]) {
+        final size = r.ceil() + 12;
+        final p = BLPath()
+          ..moveTo(6, 6)
+          ..lineTo(6 + r, 6)
+          ..addArc(6, 6, r, 0, math.pi / 2, moveToStart: false)
+          ..close();
+        final got =
+            await painted(size, (ctx) => ctx.fillPath(p, color: 0xFF000000));
+        final exact = math.pi * r * r / 4;
+        expect(got, closeTo(exact, exact * 0.005), reason: 'raio \$r');
+      }
     });
   });
 }

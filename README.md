@@ -79,13 +79,27 @@ anti-aliasing sem supersampling.
 contexto.
 
 **Estilos.** Cor sólida, gradiente linear, radial e cônico, e padrão de imagem
-com filtragem `nearest` ou `bilinear` e transformação afim própria.
+com transformação afim própria. A filtragem escolhida — `nearest` ou
+`bilinear` — vale para a ampliação; na redução o fetcher integra a área que
+cada pixel de device cobre, porque amostrar um texel (ou quatro) descartaria a
+maior parte da origem e o que sobrasse viraria moiré. É o caminho de uma
+digitalização de 300 dpi numa página renderizada a 96 dpi.
 
 **Geometria.** `BLPath` com `moveTo`/`lineTo`/`quadTo`/`cubicTo`/`close`, arcos,
 arcos elípticos, retângulos e retângulos arredondados. Stroking com todos os
 caps (`butt`, `square`, `round`, `roundRev`, `triangle`, `triangleRev`) e joins
 (`bevel`, `miterClip`, `miterBevel`, `miterRound`, `round`), além de tracejado
 com offset de fase.
+
+O achatamento de curvas preserva a área. Uma polilinha inscrita na curva sempre
+encerra menos área que ela, e com tolerância fixa o erro relativo cresce quando
+o raio cai: um círculo de raio 2 px rasterizava com área 11,3 contra 12,57
+analíticos, 10% a menos. A folha do achatamento emite, antes do ponto final, o
+vértice que faz o triângulo ter exatamente a área da lasca entre a corda e a
+curva — com isso a área do polígono é a da curva em qualquer nível de
+subdivisão, e o desvio máximo em relação à curva ainda cai para um terço. De
+raio 1 a 64 a área rasterizada fica dentro de 0,2% da analítica, e o retângulo
+alinhado continua exato.
 
 **Clipping.** Retangular e por caminho arbitrário (`clipToPath`), com pilha
 `save`/`restore`. O clip recorta de verdade por máscara de cobertura — não é
@@ -96,8 +110,16 @@ rejeição por bounding box.
 
 **Texto.** Parsing de OpenType em memória: `head`, `maxp`, `hhea`, `hmtx`,
 `cmap`, `name`, `OS/2`, `kern`, contornos `glyf` (simples e compostos) e CFF.
-Layout com kerning, shaping básico de GSUB/GPOS, cache de outline por tamanho e
-rasterização de glifos.
+Layout com kerning, cache de outline por tamanho e rasterização de glifos.
+
+O shaping cobre GSUB tipos 1 a 4 (substituição simples, múltipla, alternativa e
+ligadura) e GPOS tipos 1 e 2 (ajuste simples e por par), incluindo os que vêm
+embrulhados numa Extension lookup — GSUB 7 e GPOS 9 —, cujo tipo real é
+resolvido ao ler a lista. Do GPOS sai o ajuste completo: o avanço move o cursor
+e o *placement* move só o desenho do glifo, que é como a fonte encaixa um
+acento sobre a letra. Posicionamento contextual (GSUB 5/6, GPOS 7/8) e marcas
+(GPOS 3 a 6) ainda não são aplicados; uma lookup desse tipo é ignorada, nunca
+lida como outra coisa.
 
 ```dart
 final face = BLFontFace.parse(fontBytes);

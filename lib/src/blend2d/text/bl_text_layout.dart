@@ -1,6 +1,7 @@
 import 'bl_font.dart';
 import 'bl_glyph_run.dart';
 import 'bl_bidi.dart';
+import 'bl_opentype_layout.dart';
 
 /// Layout de texto avançado com suporte a shaping (GSUB/GPOS), Bidi (LTR/RTL),
 /// e quebras de linha multi-line (`\n`).
@@ -50,9 +51,12 @@ class BLTextLayout {
           glyphIds = engine.applyGSUB(glyphIds, features: gsubFeatures);
         }
 
-        List<int>? gposAdj;
+        List<BLGlyphAdjustment>? gposAdj;
         if (engine != null && engine.hasGPOS) {
-          gposAdj = engine.applyGPOS(glyphIds, features: gposFeatures);
+          gposAdj = engine.applyGPOSAdjustments(
+            glyphIds,
+            features: gposFeatures,
+          );
         }
 
         // Calcula a largura total do run primeiro (crucial para RTL)
@@ -67,10 +71,24 @@ class BLTextLayout {
           final adv = font.glyphAdvance(gid);
           double effAdv = adv;
           if (gposAdj != null && i < gposAdj.length) {
-            effAdv += font.scaleValue(gposAdj[i]);
+            effAdv += font.scaleValue(gposAdj[i].xAdvance);
           }
           advances[i] = effAdv;
           runWidth += effAdv;
+        }
+
+        // O placement move só o desenho do glifo, não o cursor: é o que
+        // encaixa um acento sobre a letra. O outline sai do `glyf` sem
+        // inversão de eixo, então y positivo é para cima nos dois.
+        final offX = List<double>.filled(glyphIds.length, 0.0);
+        final offY = List<double>.filled(glyphIds.length, 0.0);
+        if (gposAdj != null) {
+          for (int i = 0; i < glyphIds.length && i < gposAdj.length; i++) {
+            final a = gposAdj[i];
+            if (a.isZero) continue;
+            offX[i] = font.scaleValue(a.xPlacement);
+            offY[i] = font.scaleValue(a.yPlacement);
+          }
         }
 
         // Posiciona os glifos (Lógica Base LTR vs RTL)
@@ -79,8 +97,8 @@ class BLTextLayout {
             final gid = glyphIds[i];
             allGlyphs.add(BLGlyphPlacement(
               glyphId: gid,
-              x: penX,
-              y: penY,
+              x: penX + offX[i],
+              y: penY + offY[i],
               advanceX: advances[i],
             ));
             penX += advances[i];
@@ -94,8 +112,8 @@ class BLTextLayout {
             rtlX -= advances[i]; // Move para a esquerda
             allGlyphs.add(BLGlyphPlacement(
               glyphId: gid,
-              x: rtlX,
-              y: penY,
+              x: rtlX + offX[i],
+              y: penY + offY[i],
               advanceX: advances[i],
             ));
           }

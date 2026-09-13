@@ -1,5 +1,43 @@
 # Changelog
 
+## Não publicado
+
+### Corrigido
+
+- O achatamento de curvas subestimava a área que elas encerram. Uma polilinha
+  inscrita sempre encerra menos que a curva, e com tolerância fixa o erro
+  relativo cresce quando o raio cai: um círculo de raio 2 px rasterizava com
+  área 11,3 contra 12,57 analíticos. A folha do achatamento passa a emitir o
+  vértice que preserva a área da lasca entre a corda e a curva, o que iguala a
+  área do polígono à da curva em qualquer subdivisão e ainda reduz a um terço o
+  desvio máximo. De raio 1 a 64 a área rasterizada fica dentro de 0,2%.
+- O traço de contornos fechados curvos perdia largura: 25% com `bevel`/`round`
+  e 50% com as três variantes de miter, que é o join padrão do PDF. Eram três
+  defeitos somados — o ponto de miter saía na metade da distância certa, o join
+  era aplicado no lado errado do giro, e a chamada do lado direito negava duas
+  vezes e devolvia os pontos do lado esquerdo.
+- Traçar um contorno fechado degenerado (`m l h S`, o que o PyMuPDF emite para
+  toda linha) emitia o mesmo retângulo duas vezes com a mesma orientação, e a
+  cobertura parcial das bordas saturava: uma linha de 1 px saía com cobertura 2
+  e sem antisserrilhamento.
+- O rasterizador truncava a área acumulada por célula e o alfa de saída em vez
+  de arredondar, o que encolhia formas pequenas em até 2%.
+- Lookups OpenType do tipo Extension (GSUB 7, GPOS 9) calculavam o tipo real e
+  o descartavam, de modo que nenhuma fonte que as usasse aplicava substituição
+  ou posicionamento. Além disso GPOS 7, que é posicionamento contextual, era
+  confundido com extensão.
+
+### Adicionado
+
+- Filtro de caixa para redução em padrões de imagem: quando a matriz encolhe a
+  origem, o fetcher integra a área que cada pixel de device cobre em vez de
+  amostrar um texel. `BLPatternFilter.box` declara a intenção; `nearest` e
+  `bilinear` passam a se comportar assim na redução de qualquer forma, já que
+  os dois só descrevem o que fazer ao ampliar.
+- `BLLayoutEngine.applyGPOSAdjustments` devolve o ajuste completo de cada glifo
+  — avanço e *placement* —, e o layout de texto aplica os dois. O placement era
+  lido das subtabelas e jogado fora, o que apaga acentos deslocados.
+
 ## 1.0.0
 
 Primeira versão publicada, sob o nome `dgfx`. O pacote foi reorganizado a

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:test/test.dart';
 import 'package:dgfx/dgfx.dart';
 
@@ -143,6 +145,86 @@ void main() {
       final data2 = path.toPathData();
       expect(data1.vertices.length, data2.vertices.length);
       expect(data1.contourVertexCounts, data2.contourVertexCounts);
+    });
+  });
+
+  // Regressão: a polilinha do achatamento subestimava a área da curva.
+  //
+  // Um polígono INSCRITO num círculo de raio r com n lados encerra
+  // `(n/2) r^2 sen(2pi/n)`, bem menos que `pi r^2` quando n é pequeno. Como a
+  // tolerância de achatamento é fixa, raios pequenos ganhavam poucos segmentos
+  // e o erro chegava a 10%: um círculo de raio 2 px achatava para um octógono
+  // de área 11,31 contra 12,57 analíticos. A folha do achatamento agora emite
+  // o vértice que preserva a área da lasca entre a corda e a curva, então a
+  // área do polígono bate com a da curva em qualquer subdivisão.
+  group('BLPath - área do achatamento', () {
+    double polygonArea(List<double> v) {
+      final n = v.length ~/ 2;
+      if (n < 3) return 0.0;
+      double acc = 0.0;
+      for (int i = 0; i < n; i++) {
+        final j = (i + 1) % n;
+        acc += v[i * 2] * v[j * 2 + 1] - v[j * 2] * v[i * 2 + 1];
+      }
+      return acc.abs() / 2;
+    }
+
+    BLPath ellipse(double cx, double cy, double rx, double ry) {
+      const k = 0.5522847498;
+      final kx = rx * k, ky = ry * k;
+      return BLPath()
+        ..moveTo(cx + rx, cy)
+        ..cubicTo(cx + rx, cy - ky, cx + kx, cy - ry, cx, cy - ry)
+        ..cubicTo(cx - kx, cy - ry, cx - rx, cy - ky, cx - rx, cy)
+        ..cubicTo(cx - rx, cy + ky, cx - kx, cy + ry, cx, cy + ry)
+        ..cubicTo(cx + kx, cy + ry, cx + rx, cy + ky, cx + rx, cy)
+        ..close();
+    }
+
+    test('círculo achatado tem a área analítica, de r=1 a r=64', () {
+      for (final r in <double>[1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64]) {
+        final area = polygonArea(ellipse(100, 100, r, r).toPathData().vertices);
+        final exact = math.pi * r * r;
+        expect(area, closeTo(exact, exact * 0.005),
+            reason: 'raio \$r: \$area vs \$exact');
+      }
+    });
+
+    test('elipse achatada tem a área analítica', () {
+      for (final radii in <List<double>>[
+        [2, 4],
+        [4, 2],
+        [8, 16],
+        [30, 10],
+        [64, 16],
+      ]) {
+        final rx = radii[0], ry = radii[1];
+        final area = polygonArea(ellipse(100, 100, rx, ry).toPathData().vertices);
+        final exact = math.pi * rx * ry;
+        expect(area, closeTo(exact, exact * 0.005),
+            reason: 'rx=\$rx ry=\$ry: \$area vs \$exact');
+      }
+    });
+
+    test('quarto de círculo achatado tem a área analítica', () {
+      for (final r in <double>[2, 4, 8, 16, 32, 64]) {
+        final p = BLPath()
+          ..moveTo(100, 100)
+          ..lineTo(100 + r, 100)
+          ..addArc(100, 100, r, 0, math.pi / 2, moveToStart: false)
+          ..close();
+        final area = polygonArea(p.toPathData().vertices);
+        final exact = math.pi * r * r / 4;
+        expect(area, closeTo(exact, exact * 0.005), reason: 'raio \$r');
+      }
+    });
+
+    test('o achatamento não desperdiça vértices em curva já reta', () {
+      // Uma "curva" colinear não ganha vértice de compensação: a lasca é nula.
+      final p = BLPath()
+        ..moveTo(0, 0)
+        ..cubicTo(10, 0, 20, 0, 30, 0);
+      expect(p.toPathData().vertices, [0.0, 0.0, 30.0, 0.0]);
     });
   });
 }
