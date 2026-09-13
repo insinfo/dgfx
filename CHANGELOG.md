@@ -2,6 +2,36 @@
 
 ## 1.0.0
 
+Primeira versão publicada, sob o nome `dgfx`. O pacote foi reorganizado a
+partir do repositório de pesquisa `marlin`, que era um workspace de
+experimentos e não um pacote distribuível.
+
+### Adicionado
+
+- `package:dgfx/dgfx.dart` como ponto de entrada único e compatível com web e
+  wasm. Um teste de arquitetura percorre o grafo de imports real a cada build
+  para garantir que nada ali alcance `dart:io`, `dart:isolate`, `dart:ffi` ou
+  `dart:html` — e um caso-guarda verifica que o próprio detector ainda funciona.
+- `package:dgfx/dgfx_io.dart` para os recursos que exigem plataforma nativa
+  (`BLFontLoader`, `BLIsolatePool`), separado justamente para que importá-los
+  seja uma decisão explícita.
+- `BLMatrix2D` com `multiply`, `invert`, `mapPoint`, determinante e os
+  construtores `translation`, `scaling` e `rotation`.
+- Clipping por caminho arbitrário (`clipToPath`, `clipToRectPath`,
+  `resetClip`), recortando por máscara de cobertura em vez de rejeitar por
+  bounding box.
+- `BLStrokeOptions.minimumWidth`, para o caso em que a largura pedida é zero e
+  ainda assim se espera a linha mais fina que o dispositivo desenha.
+- Filtro de caixa para redução em padrões de imagem: quando a matriz encolhe a
+  origem, o fetcher integra a área que cada pixel de device cobre em vez de
+  amostrar um texel. `BLPatternFilter.box` declara a intenção; `nearest` e
+  `bilinear` passam a se comportar assim na redução de qualquer forma, já que
+  os dois só descrevem o que fazer ao ampliar.
+- `BLLayoutEngine.applyGPOSAdjustments` devolve o ajuste completo de cada glifo
+  — avanço e *placement* —, e o layout de texto aplica os dois. O placement era
+  lido das subtabelas e jogado fora, o que apaga acentos deslocados.
+- Exemplo executável e documentação de API.
+
 ### Corrigido
 
 - O achatamento de curvas subestimava a área que elas encerram. Uma polilinha
@@ -27,41 +57,6 @@
   ou posicionamento. Além disso GPOS 7, que é posicionamento contextual, era
   confundido com extensão.
 
-### Adicionado
-
-- Filtro de caixa para redução em padrões de imagem: quando a matriz encolhe a
-  origem, o fetcher integra a área que cada pixel de device cobre em vez de
-  amostrar um texel. `BLPatternFilter.box` declara a intenção; `nearest` e
-  `bilinear` passam a se comportar assim na redução de qualquer forma, já que
-  os dois só descrevem o que fazer ao ampliar.
-- `BLLayoutEngine.applyGPOSAdjustments` devolve o ajuste completo de cada glifo
-  — avanço e *placement* —, e o layout de texto aplica os dois. O placement era
-  lido das subtabelas e jogado fora, o que apaga acentos deslocados.
-
-## 1.0.0
-
-Primeira versão publicada, sob o nome `dgfx`. O pacote foi reorganizado a
-partir do repositório de pesquisa `marlin`, que era um workspace de
-experimentos e não um pacote distribuível.
-
-### Adicionado
-
-- `package:dgfx/dgfx.dart` como ponto de entrada único e compatível com web e
-  wasm. Um teste de arquitetura percorre o grafo de imports real a cada build
-  para garantir que nada ali alcance `dart:io`, `dart:isolate`, `dart:ffi` ou
-  `dart:html` — e um caso-guarda verifica que o próprio detector ainda funciona.
-- `package:dgfx/dgfx_io.dart` para os recursos que exigem plataforma nativa
-  (`BLFontLoader`, `BLIsolatePool`), separado justamente para que importá-los
-  seja uma decisão explícita.
-- `BLMatrix2D` com `multiply`, `invert`, `mapPoint`, determinante e os
-  construtores `translation`, `scaling` e `rotation`.
-- Clipping por caminho arbitrário (`clipToPath`, `clipToRectPath`,
-  `resetClip`), recortando por máscara de cobertura em vez de rejeitar por
-  bounding box.
-- `BLStrokeOptions.minimumWidth`, para o caso em que a largura pedida é zero e
-  ainda assim se espera a linha mais fina que o dispositivo desenha.
-- Exemplo executável e documentação de API.
-
 ### Alterado
 
 - **Licença agora é MIT**, com a atribuição ao Blend2D (zlib) registrada em
@@ -73,6 +68,9 @@ experimentos e não um pacote distribuível.
 - Os rasterizadores experimentais de pesquisa, o parser SVG e o escritor PNG
   continuam no repositório mas ficam fora do pacote publicado. Com isso o
   pacote passou a ter **zero dependências de runtime**.
+- O pacote publicado leva apenas README, LICENSE, NOTICE, CHANGELOG, pubspec,
+  `lib/` e `example/`. A suíte de testes, os benchmarks, as ferramentas de
+  geração e o material de pesquisa ficam no repositório.
 
 ### Movido
 
