@@ -122,7 +122,9 @@ class BLPatternFetcher {
             _computePeriodFp(pattern.image.height, pattern.extendModeY)),
         _boxSpanX = pattern.transform.m00.abs() + pattern.transform.m01.abs(),
         _boxSpanY = pattern.transform.m10.abs() + pattern.transform.m11.abs(),
-        _useBox = _isReducing(pattern.transform);
+        _useBox = pattern.filter == BLPatternFilter.box
+            ? _isReducingAtAll(pattern.transform)
+            : _isReducing(pattern.transform);
 
   /// Redução mínima para que o filtro de caixa valha a pena.
   ///
@@ -150,6 +152,23 @@ class BLPatternFetcher {
     final colX = m.m00 * m.m00 + m.m10 * m.m10;
     final colY = m.m01 * m.m01 + m.m11 * m.m11;
     const limit = _minReductionForBox * _minReductionForBox;
+    return colX > limit || colY > limit;
+  }
+
+  /// True para qualquer redução, por menor que seja.
+  ///
+  /// É o que [BLPatternFilter.box] passa a significar: quem pede `box` declara
+  /// que está desenhando uma imagem, e não um ladrilho, e aceita integrar a
+  /// área sempre que a origem for maior que o destino. O limiar de
+  /// [_minReductionForBox] continua valendo para a escolha automática, que é o
+  /// que protege a borda do ladrilho remapeado em 1,07.
+  ///
+  /// Em 1:1 exato isto é falso, então uma imagem colocada sem escala continua
+  /// sendo amostrada por ponto e um código de barras não borra.
+  static bool _isReducingAtAll(BLMatrix2D m) {
+    final colX = m.m00 * m.m00 + m.m10 * m.m10;
+    final colY = m.m01 * m.m01 + m.m11 * m.m11;
+    const limit = 1.0 + 1e-6;
     return colX > limit || colY > limit;
   }
 
