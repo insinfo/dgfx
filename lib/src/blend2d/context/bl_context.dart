@@ -11,6 +11,7 @@ import '../geometry/bl_dasher.dart';
 import '../geometry/bl_path.dart';
 import '../geometry/bl_stroker.dart';
 import '../pipeline/bl_compop_kernel.dart';
+import '../pipeline/bl_fetch_gouraud.dart';
 import '../pipeline/bl_fetch_solid.dart';
 import '../raster/bl_analytic_rasterizer.dart';
 import '../text/bl_font.dart';
@@ -128,21 +129,34 @@ class BLContext {
   /// Pilha de estados salvos via [save()].
   final List<_BLContextState> _stateStack = [];
 
+  /// Cria um contexto que desenha sobre [image].
+  ///
+  /// Os parâmetros [useSimd], [useIsolates], [tileHeight],
+  /// [minParallelDirtyHeight] e [aaSubsampleY] estão depreciados e **não
+  /// fazem nada** — nunca fizeram. Não há caminho SIMD, não há paralelismo
+  /// por isolates (Dart não compartilha memória entre isolates sem
+  /// `dart:ffi`, que este pacote não usa) e o rasterizador é analítico, isto
+  /// é, calcula a área exata coberta por pixel, de modo que não existe
+  /// supersampling a configurar. Passá-los não altera nem um pixel nem um
+  /// microssegundo; serão removidos numa versão futura.
   BLContext(
     this.image, {
+    @Deprecated('No-op: não existe caminho SIMD. Será removido.')
     bool useSimd = false,
+    @Deprecated('No-op: não existe paralelismo por isolates. Será removido.')
     bool useIsolates = false,
+    @Deprecated('No-op: não existe resolve paralelo por faixas. Será removido.')
     int tileHeight = 64,
+    @Deprecated('No-op: não existe resolve paralelo. Será removido.')
     int minParallelDirtyHeight = 256,
+    @Deprecated(
+      'No-op: o rasterizador é analítico (área exata), não amostra. '
+      'Será removido.',
+    )
     int aaSubsampleY = 2,
   }) : _rasterizer = BLAnalyticRasterizer(
           image.width,
           image.height,
-          useSimd: useSimd,
-          useIsolates: useIsolates,
-          tileHeight: tileHeight,
-          minParallelDirtyHeight: minParallelDirtyHeight,
-          aaSubsampleY: aaSubsampleY,
           // O rasterizador compoe direto no buffer da imagem. Antes cada draw
           // terminava com uma copia da superficie inteira; numa pagina PDF com
           // milhares de operadores isso dominava o tempo de render.
@@ -639,6 +653,142 @@ class BLContext {
       clipMask: mask,
       clipBox: clipBox,
     );
+  }
+
+  // =========================================================================
+  // Gouraud — interpolação de cor por vértice
+  // =========================================================================
+
+  /// Preenche um triângulo com a cor interpolada linearmente entre os três
+  /// vértices (sombreamento de Gouraud).
+  ///
+  /// As coordenadas passam pela transformação corrente; as cores são ARGB32.
+  /// O estilo de fill do contexto é ignorado — a cor vem dos vértices —, mas
+  /// [compOp], [globalAlpha], o clip retangular e a máscara de clip valem
+  /// normalmente.
+  ///
+  /// Este é o caminho de um triângulo só, com antisserrilhamento nas três
+  /// arestas. Para uma malha de triângulos adjacentes use
+  /// [fillTriangleMesh]: desenhar triângulo a triângulo e compor com
+  /// `srcOver` deixa uma costura clara em cada aresta compartilhada, porque
+  /// meia cobertura de cada lado não soma cobertura cheia.
+  Future<void> fillTriangleGouraud(
+    double x0,
+    double y0,
+    BLColor c0,
+    double x1,
+    double y1,
+    BLColor c1,
+    double x2,
+    double y2,
+    BLColor c2,
+  ) async {
+    final verts = <double>[x0, y0, x1, y1, x2, y2];
+    final drawVerts = isTransformIdentity ? verts : _transformVertices(verts);
+
+    final BLRectI? clipBox = _clipRect;
+    if (clipBox != null &&
+        (clipBox.width <= 0 ||
+            clipBox.height <= 0 ||
+            _outsideClipBox(drawVerts, clipBox))) {
+      return;
+    }
+
+    final fetcher = BLGouraudFetcher(
+      drawVerts[0], drawVerts[1], c0, //
+      drawVerts[2], drawVerts[3], c1, //
+      drawVerts[4], drawVerts[5], c2,
+    );
+
+    await _rasterizer.drawPolygonFetched(
+      drawVerts,
+      _withGlobalAlpha(fetcher.fetch),
+      fillRule: BLFillRule.nonZero,
+      compOp: compOp,
+      clipMask: _effectiveMask(),
+      clipBox: clipBox,
+    );
+  }
+
+  /// Preenche uma malha de triângulos com sombreamento de Gouraud **numa
+  /// única passada do rasterizador**.
+  ///
+  /// [xy] são coordenadas intercaladas `x, y` (um par por vértice), [colors]
+  /// traz uma cor ARGB32 por vértice e [indices] três índices por triângulo.
+  /// Omitir [indices] faz [xy] ser lido como uma sequência direta de
+  /// triângulos.
+  ///
+  /// A passada única é o ponto: cada triângulo entra como um contorno da mesma
+  /// geometria, com regra `nonZero`. O rasterizador analítico acumula área com
+  /// sinal, então uma aresta interna percorrida em sentidos opostos pelos dois
+  /// triângulos vizinhos se cancela exatamente — as arestas internas saem
+  /// **sem antisserrilhamento e sem costura**, e o antisserrilhamento fica só
+  /// na silhueta externa da malha, que é onde ele deve estar. A orientação dos
+  /// triângulos é normalizada internamente, então a malha pode vir com
+  /// orientação mista.
+  ///
+  /// É o caminho para os sombreamentos PDF de tipo 4 (free-form Gouraud), 5
+  /// (lattice-form Gouraud), 6 (Coons patch) e 7 (tensor patch), em que a
+  /// alternativa — um fill por triângulo, com a média das três cores — custa
+  /// até mais de mil chamadas por patch e ainda deixa uma grade visível.
+  Future<void> fillTriangleMesh(
+    Float64List xy,
+    Uint32List colors, [
+    Int32List? indices,
+  ]) async {
+    if (xy.length < 6) return;
+
+    Float64List deviceXy;
+    if (isTransformIdentity) {
+      deviceXy = xy;
+    } else {
+      final m = _transform;
+      deviceXy = Float64List(xy.length);
+      for (int i = 0; i < xy.length; i += 2) {
+        final x = xy[i], y = xy[i + 1];
+        deviceXy[i] = m.m00 * x + m.m10 * y + m.m20;
+        deviceXy[i + 1] = m.m01 * x + m.m11 * y + m.m21;
+      }
+    }
+
+    final mesh = BLGouraudMeshFetcher(deviceXy, colors, indices);
+    if (mesh.triangleCount == 0) return;
+
+    final BLRectI? clipBox = _clipRect;
+    if (clipBox != null &&
+        (clipBox.width <= 0 ||
+            clipBox.height <= 0 ||
+            _outsideClipBox(mesh.orientedVertices, clipBox))) {
+      return;
+    }
+
+    await _rasterizer.drawPolygonFetched(
+      mesh.orientedVertices,
+      _withGlobalAlpha(mesh.fetch),
+      fillRule: BLFillRule.nonZero,
+      compOp: compOp,
+      contourVertexCounts: mesh.contourVertexCounts,
+      clipMask: _effectiveMask(),
+      clipBox: clipBox,
+    );
+  }
+
+  /// True quando a caixa de [verts] não toca [clipBox] — reject barato antes
+  /// de acumular aresta nenhuma.
+  static bool _outsideClipBox(List<double> verts, BLRectI clipBox) {
+    double minX = double.infinity, maxX = double.negativeInfinity;
+    double minY = double.infinity, maxY = double.negativeInfinity;
+    for (int i = 0; i < verts.length; i += 2) {
+      final vx = verts[i], vy = verts[i + 1];
+      if (vx < minX) minX = vx;
+      if (vx > maxX) maxX = vx;
+      if (vy < minY) minY = vy;
+      if (vy > maxY) maxY = vy;
+    }
+    return maxX < clipBox.x ||
+        minX > clipBox.x + clipBox.width ||
+        maxY < clipBox.y ||
+        minY > clipBox.y + clipBox.height;
   }
 
   /// Envolve [fetcher] aplicando [globalAlpha] ao alpha da fonte.

@@ -152,7 +152,8 @@ List<List<double>> _createLetterA(double cx, double cy, double size) {
     addPoint(px, py);
   }
 
-  void quadRel(double cdx, double cdy, double dx, double dy, {int segments = 16}) {
+  void quadRel(double cdx, double cdy, double dx, double dy,
+      {int segments = 16}) {
     final x0 = px;
     final y0 = py;
     final cx0 = x0 + cdx;
@@ -185,10 +186,14 @@ List<List<double>> _createLetterA(double cx, double cy, double size) {
   lineRel(12.6, 0.0); // h12.6
 
   final bar = <double>[
-    mapX(352.4), mapY(424.3),
-    mapX(221.9), mapY(424.3),
-    mapX(221.9), mapY(392.2),
-    mapX(352.4), mapY(392.2),
+    mapX(352.4),
+    mapY(424.3),
+    mapX(221.9),
+    mapY(424.3),
+    mapX(221.9),
+    mapY(392.2),
+    mapX(352.4),
+    mapY(392.2),
   ];
 
   return <List<double>>[outer, bar];
@@ -206,7 +211,16 @@ List<double> _createThinLine(
   final len = math.sqrt(dx * dx + dy * dy);
   if (len <= 1e-9) {
     final h = thickness * 0.5;
-    return <double>[x0 - h, y0 - h, x0 + h, y0 - h, x0 + h, y0 + h, x0 - h, y0 + h];
+    return <double>[
+      x0 - h,
+      y0 - h,
+      x0 + h,
+      y0 - h,
+      x0 + h,
+      y0 + h,
+      x0 - h,
+      y0 + h
+    ];
   }
   final nx = -dy / len;
   final ny = dx / len;
@@ -352,7 +366,8 @@ List<_ScenePolygon> _createSyntheticScene() {
       ),
     ),
     _ScenePolygon(
-      vertices: _ensureClockwise(_createArcBand(140, 258, 34, 38, -2.6, -0.15, 36)),
+      vertices:
+          _ensureClockwise(_createArcBand(140, 258, 34, 38, -2.6, -0.15, 36)),
       fillRule: BLFillRule.nonZero,
       color: 0xFFFF0000,
     ),
@@ -420,13 +435,9 @@ Future<void> main() async {
 
   final polygons = _createSyntheticScene();
   final image = BLImage(width, height);
-  final ctx = BLContext(
-    image,
-    useSimd: false,
-    useIsolates: false,
-    tileHeight: 64,
-    minParallelDirtyHeight: 256,
-  );
+  // Sem flags de configuracao: useSimd/useIsolates/tileHeight/
+  // minParallelDirtyHeight sempre foram no-ops e estao depreciados.
+  final ctx = BLContext(image);
 
   try {
     print('Blend2D Dart Port Bootstrap Benchmark');

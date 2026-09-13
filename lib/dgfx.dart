@@ -15,17 +15,21 @@
 /// só existem fora do navegador — importe `package:dgfx/dgfx_io.dart`.
 ///
 /// ```dart
-/// final image = BLImage(200, 200);
-/// final ctx = BLContext(image)..clearAll(0xFFFFFFFF);
-/// final path = BLPath()
-///   ..moveTo(20, 20)
-///   ..lineTo(180, 60)
-///   ..lineTo(100, 180)
-///   ..close();
-/// ctx
-///   ..setFillStyle(0xFF3366CC)
-///   ..fillPath(path)
-///   ..flush();
+/// import 'package:dgfx/dgfx.dart';
+///
+/// Future<void> main() async {
+///   final image = BLImage(200, 200);
+///   final ctx = BLContext(image)..clear(0xFFFFFFFF);
+///   final path = BLPath()
+///     ..moveTo(20, 20)
+///     ..lineTo(180, 60)
+///     ..lineTo(100, 180)
+///     ..close();
+///   ctx.setFillStyle(0xFF3366CC);
+///   await ctx.fillPath(path);
+///   ctx.flush();
+///   // `image.pixels` é um Uint32List ARGB pronto para ser codificado.
+/// }
 /// ```
 library;
 
@@ -42,6 +46,7 @@ export 'src/blend2d/geometry/bl_stroker.dart';
 // Pipeline de composição e fetchers de estilo.
 export 'src/blend2d/pipeline/bl_compop_kernel.dart';
 export 'src/blend2d/pipeline/bl_fetch_conic_gradient.dart';
+export 'src/blend2d/pipeline/bl_fetch_gouraud.dart';
 export 'src/blend2d/pipeline/bl_fetch_linear_gradient.dart';
 export 'src/blend2d/pipeline/bl_fetch_pattern.dart';
 export 'src/blend2d/pipeline/bl_fetch_radial_gradient.dart';
@@ -51,7 +56,6 @@ export 'src/blend2d/pixelops/bl_pixelops.dart';
 // Rasterizador analítico.
 export 'src/blend2d/raster/bl_analytic_rasterizer.dart';
 export 'src/blend2d/raster/bl_edge_builder.dart';
-export 'src/blend2d/raster/bl_edge_storage.dart';
 export 'src/blend2d/raster/bl_raster_defs.dart';
 
 // Texto (parsing de fonte em memória, layout e rasterização de glifos).

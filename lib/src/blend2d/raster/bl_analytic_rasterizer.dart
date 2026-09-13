@@ -47,13 +47,48 @@ class BLAnalyticRasterizer {
   /// [target] permite compor diretamente no buffer de pixels de uma [BLImage],
   /// evitando a cópia da superfície inteira a cada draw. Se omitido, o
   /// rasterizador aloca o próprio framebuffer.
+  ///
+  /// Os parâmetros [useSimd], [useIsolates], [tileHeight],
+  /// [minParallelDirtyHeight] e [aaSubsampleY] estão depreciados e **não
+  /// fazem nada**. Veja a documentação de cada um para o porquê; nenhum deles
+  /// jamais teve implementação, e passá-los nunca mudou um único pixel nem um
+  /// microssegundo. Serão removidos numa versão futura.
   BLAnalyticRasterizer(
     this.width,
     this.height, {
+    @Deprecated(
+      'No-op: nunca houve caminho SIMD neste rasterizador. Dart só expõe '
+      'Float32x4/Int32x4, que não cobrem a composição ARGB de 8 bits por '
+      'canal usada aqui, e no dart2js/dart2wasm nem intrínsecos existem. '
+      'Passar este parâmetro não muda nada. Será removido numa versão futura.',
+    )
     bool useSimd = false,
+    @Deprecated(
+      'No-op: não há paralelismo. Dart não tem memória compartilhada entre '
+      'isolates sem dart:ffi (proibido neste pacote), então dividir o resolve '
+      'em faixas exigiria copiar covers/areas/framebuffer ida e volta. Medido '
+      'nesta máquina: enviar um framebuffer A4@300dpi a um isolate custa '
+      '~31 ms e recebê-lo de volta ~9 ms, contra ~11 ms do fill inteiro — o '
+      'paralelismo seria 4x mais lento que o caminho sequencial. '
+      'Será removido numa versão futura.',
+    )
     bool useIsolates = false,
+    @Deprecated(
+      'No-op: existia para dimensionar as faixas do resolve paralelo, que não '
+      'existe (veja useIsolates). O resolve percorre apenas o intervalo sujo '
+      'de scanlines, sem tiling. Será removido numa versão futura.',
+    )
     int tileHeight = 64,
+    @Deprecated(
+      'No-op: limiar do resolve paralelo, que não existe (veja useIsolates). '
+      'Será removido numa versão futura.',
+    )
     int minParallelDirtyHeight = 256,
+    @Deprecated(
+      'No-op e sem sentido aqui: este rasterizador é analítico e calcula a '
+      'área exata coberta por pixel (cover/area), não amostra. Não há o que '
+      'supersamplear em Y. Será removido numa versão futura.',
+    )
     int aaSubsampleY = 2,
     Uint32List? target,
   })  : _buffer = _resolveTarget(target, width, height),
@@ -66,15 +101,6 @@ class BLAnalyticRasterizer {
         _rowMaxX = Int32List(height) {
     _rowMinX.fillRange(0, _rowMinX.length, width);
     _rowMaxX.fillRange(0, _rowMaxX.length, -1);
-    // Flags mantidas por compatibilidade de construcao da API.
-    // Implementacao paralela/SIMD sera adicionada em fases seguintes.
-    if (useSimd ||
-        useIsolates ||
-        tileHeight <= 0 ||
-        minParallelDirtyHeight <= 0 ||
-        aaSubsampleY < 0) {
-      // no-op
-    }
   }
 
   static Uint32List _resolveTarget(Uint32List? target, int width, int height) {

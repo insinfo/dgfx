@@ -130,8 +130,8 @@ void main() {
 
       if (violations.isNotEmpty) {
         final report = violations.entries
-            .map(
-                (e) => '  $e.key alcançado via:\n    ${e.value.join('\n    ')}')
+            .map((e) =>
+                '  ${e.key} alcançado via:\n    ${e.value.join('\n    ')}')
             .join('\n');
         fail('A facade web-safe alcança bibliotecas proibidas:\n$report');
       }
