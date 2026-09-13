@@ -18,3 +18,11 @@ build/
 # Dumps de inspeção visual gerados pelos benchmarks.
 *.ppm
 output/
+
+# Material de terceiros baixado para estudo: a especificacao SVG 2 do W3C em
+# HTML com seus arquivos, o MathJax e posts de blog. Nao e copyleft e nao
+# alcanca a licenca do pacote, mas redistribuir o texto integral de artigo com
+# copyright num repositorio publico e redistribuicao sem autorizacao, e a
+# unica vantagem sobre um link e ler offline. As notas de projeto proprias,
+# em pesquisa/*.md, continuam versionadas.
+pesquisa/news/
