@@ -50,7 +50,7 @@ class RendererContext {
   final String name;
   final ArrayCachesHolder _holder;
   // MarlinRenderer? renderer; // circular dependency handling
-  
+
   RendererContext(this.name) : _holder = ArrayCachesHolder();
 
   ArrayCachesHolder getArrayCachesHolder() => _holder;
@@ -60,26 +60,27 @@ class RendererContext {
     final bucket = ArrayCacheConfig.getBucket(length);
     return _holder.intArrayCaches[bucket];
   }
-  
-  List<int> getIntArray(int length) { // returns Int32List but type as List for flexibility
+
+  List<int> getIntArray(int length) {
+    // returns Int32List but type as List for flexibility
     if (length <= ArrayCacheConfig.maxArraySize) {
       return getIntArrayCache(length).getArray();
     }
     return List<int>.filled(length, 0); // fallback, though Int32List preferred
   }
-  
+
   // Dirty Int
   IntArrayCache getDirtyIntArrayCache(int length) {
     final bucket = ArrayCacheConfig.getBucket(length);
     return _holder.dirtyIntArrayCaches[bucket];
   }
-  
+
   // Float
   FloatArrayCache getDirtyFloatArrayCache(int length) {
-     final bucket = ArrayCacheConfig.getBucket(length);
-     return _holder.dirtyFloatArrayCaches[bucket];
+    final bucket = ArrayCacheConfig.getBucket(length);
+    return _holder.dirtyFloatArrayCaches[bucket];
   }
-  
+
   // Byte
   ByteArrayCache getDirtyByteArrayCache(int length) {
     final bucket = ArrayCacheConfig.getBucketDirtyBytes(length);
@@ -88,24 +89,25 @@ class RendererContext {
 
   // Int32List Reuse
   void putIntArray(Int32List array, int fromIndex, int toIndex) {
-      if (array.length <= ArrayCacheConfig.maxArraySize) {
-          final bucket = ArrayCacheConfig.getBucket(array.length);
-          _holder.intArrayCaches[bucket].putArray(array, array.length, fromIndex, toIndex);
-      }
+    if (array.length <= ArrayCacheConfig.maxArraySize) {
+      final bucket = ArrayCacheConfig.getBucket(array.length);
+      _holder.intArrayCaches[bucket]
+          .putArray(array, array.length, fromIndex, toIndex);
+    }
   }
 
   void putDirtyIntArray(Int32List array) {
-      if (array.length <= ArrayCacheConfig.maxArraySize) {
-          final bucket = ArrayCacheConfig.getBucket(array.length);
-          _holder.dirtyIntArrayCaches[bucket].putDirtyArray(array, array.length);
-      }
+    if (array.length <= ArrayCacheConfig.maxArraySize) {
+      final bucket = ArrayCacheConfig.getBucket(array.length);
+      _holder.dirtyIntArrayCaches[bucket].putDirtyArray(array, array.length);
+    }
   }
-  
+
   void putDirtyByteArray(Uint8List array) {
-      if (array.length <= ArrayCacheConfig.maxArraySize) {
-          final bucket = ArrayCacheConfig.getBucketDirtyBytes(array.length);
-          _holder.dirtyByteArrayCaches[bucket].putDirtyArray(array, array.length);
-      }
+    if (array.length <= ArrayCacheConfig.maxArraySize) {
+      final bucket = ArrayCacheConfig.getBucketDirtyBytes(array.length);
+      _holder.dirtyByteArrayCaches[bucket].putDirtyArray(array, array.length);
+    }
   }
 }
 
@@ -118,10 +120,14 @@ class ArrayCachesHolder {
   ArrayCachesHolder() {
     ArrayCacheConfig.init();
     final buckets = ArrayCacheConfig.buckets;
-    
-    intArrayCaches = List.generate(buckets, (i) => IntArrayCache(ArrayCacheConfig.arraySizes[i]));
-    dirtyIntArrayCaches = List.generate(buckets, (i) => IntArrayCache(ArrayCacheConfig.arraySizes[i]));
-    dirtyFloatArrayCaches = List.generate(buckets, (i) => FloatArrayCache(ArrayCacheConfig.arraySizes[i]));
-    dirtyByteArrayCaches = List.generate(buckets, (i) => ByteArrayCache(ArrayCacheConfig.dirtyByteArraySizes[i]));
+
+    intArrayCaches = List.generate(
+        buckets, (i) => IntArrayCache(ArrayCacheConfig.arraySizes[i]));
+    dirtyIntArrayCaches = List.generate(
+        buckets, (i) => IntArrayCache(ArrayCacheConfig.arraySizes[i]));
+    dirtyFloatArrayCaches = List.generate(
+        buckets, (i) => FloatArrayCache(ArrayCacheConfig.arraySizes[i]));
+    dirtyByteArrayCaches = List.generate(buckets,
+        (i) => ByteArrayCache(ArrayCacheConfig.dirtyByteArraySizes[i]));
   }
 }

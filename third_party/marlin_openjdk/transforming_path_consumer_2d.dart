@@ -53,7 +53,7 @@ class TransformingPathConsumer2D {
 
   PathConsumer2D transformConsumer(PathConsumer2D out, AffineTransform? at) {
     if (at == null) return out;
-    
+
     double mxx = at.matrix[0];
     double myx = at.matrix[1];
     double mxy = at.matrix[2];
@@ -106,7 +106,8 @@ class TranslateFilter implements PathConsumer2D {
   }
 
   @override
-  void curveTo(double x1, double y1, double x2, double y2, double x3, double y3) {
+  void curveTo(
+      double x1, double y1, double x2, double y2, double x3, double y3) {
     _out!.curveTo(x1 + _tx, y1 + _ty, x2 + _tx, y2 + _ty, x3 + _tx, y3 + _ty);
   }
 
@@ -121,27 +122,35 @@ class ScaleFilter implements PathConsumer2D {
   PathConsumer2D? _out;
   double _sx = 0, _sy = 0, _tx = 0, _ty = 0;
 
-  ScaleFilter init(PathConsumer2D out, double sx, double sy, double tx, double ty) {
+  ScaleFilter init(
+      PathConsumer2D out, double sx, double sy, double tx, double ty) {
     _out = out;
-    _sx = sx; _sy = sy;
-    _tx = tx; _ty = ty;
+    _sx = sx;
+    _sy = sy;
+    _tx = tx;
+    _ty = ty;
     return this;
   }
 
   @override
-  void moveTo(double x0, double y0) => _out!.moveTo(x0 * _sx + _tx, y0 * _sy + _ty);
+  void moveTo(double x0, double y0) =>
+      _out!.moveTo(x0 * _sx + _tx, y0 * _sy + _ty);
 
   @override
-  void lineTo(double x1, double y1) => _out!.lineTo(x1 * _sx + _tx, y1 * _sy + _ty);
+  void lineTo(double x1, double y1) =>
+      _out!.lineTo(x1 * _sx + _tx, y1 * _sy + _ty);
 
   @override
   void quadTo(double x1, double y1, double x2, double y2) {
-    _out!.quadTo(x1 * _sx + _tx, y1 * _sy + _ty, x2 * _sx + _tx, y2 * _sy + _ty);
+    _out!
+        .quadTo(x1 * _sx + _tx, y1 * _sy + _ty, x2 * _sx + _tx, y2 * _sy + _ty);
   }
 
   @override
-  void curveTo(double x1, double y1, double x2, double y2, double x3, double y3) {
-    _out!.curveTo(x1 * _sx + _tx, y1 * _sy + _ty, x2 * _sx + _tx, y2 * _sy + _ty, x3 * _sx + _tx, y3 * _sy + _ty);
+  void curveTo(
+      double x1, double y1, double x2, double y2, double x3, double y3) {
+    _out!.curveTo(x1 * _sx + _tx, y1 * _sy + _ty, x2 * _sx + _tx,
+        y2 * _sy + _ty, x3 * _sx + _tx, y3 * _sy + _ty);
   }
 
   @override
@@ -155,10 +164,15 @@ class TransformFilter implements PathConsumer2D {
   PathConsumer2D? _out;
   double _mxx = 0, _mxy = 0, _mxt = 0, _myx = 0, _myy = 0, _myt = 0;
 
-  TransformFilter init(PathConsumer2D out, double mxx, double mxy, double mxt, double myx, double myy, double myt) {
+  TransformFilter init(PathConsumer2D out, double mxx, double mxy, double mxt,
+      double myx, double myy, double myt) {
     _out = out;
-    _mxx = mxx; _mxy = mxy; _mxt = mxt;
-    _myx = myx; _myy = myy; _myt = myt;
+    _mxx = mxx;
+    _mxy = mxy;
+    _mxt = mxt;
+    _myx = myx;
+    _myy = myy;
+    _myt = myt;
     return this;
   }
 
@@ -175,14 +189,19 @@ class TransformFilter implements PathConsumer2D {
   @override
   void quadTo(double x1, double y1, double x2, double y2) {
     _out!.quadTo(x1 * _mxx + y1 * _mxy + _mxt, x1 * _myx + y1 * _myy + _myt,
-                 x2 * _mxx + y2 * _mxy + _mxt, x2 * _myx + y2 * _myy + _myt);
+        x2 * _mxx + y2 * _mxy + _mxt, x2 * _myx + y2 * _myy + _myt);
   }
 
   @override
-  void curveTo(double x1, double y1, double x2, double y2, double x3, double y3) {
-    _out!.curveTo(x1 * _mxx + y1 * _mxy + _mxt, x1 * _myx + y1 * _myy + _myt,
-                  x2 * _mxx + y2 * _mxy + _mxt, x2 * _myx + y2 * _myy + _myt,
-                  x3 * _mxx + y3 * _mxy + _mxt, x3 * _myx + y3 * _myy + _myt);
+  void curveTo(
+      double x1, double y1, double x2, double y2, double x3, double y3) {
+    _out!.curveTo(
+        x1 * _mxx + y1 * _mxy + _mxt,
+        x1 * _myx + y1 * _myy + _myt,
+        x2 * _mxx + y2 * _mxy + _mxt,
+        x2 * _myx + y2 * _myy + _myt,
+        x3 * _mxx + y3 * _mxy + _mxt,
+        x3 * _myx + y3 * _myy + _myt);
   }
 
   @override
@@ -198,7 +217,8 @@ class DeltaScaleFilter implements PathConsumer2D {
 
   DeltaScaleFilter init(PathConsumer2D out, double mxx, double myy) {
     _out = out;
-    _sx = mxx; _sy = myy;
+    _sx = mxx;
+    _sy = myy;
     return this;
   }
 
@@ -214,7 +234,8 @@ class DeltaScaleFilter implements PathConsumer2D {
   }
 
   @override
-  void curveTo(double x1, double y1, double x2, double y2, double x3, double y3) {
+  void curveTo(
+      double x1, double y1, double x2, double y2, double x3, double y3) {
     _out!.curveTo(x1 * _sx, y1 * _sy, x2 * _sx, y2 * _sy, x3 * _sx, y3 * _sy);
   }
 
@@ -229,10 +250,13 @@ class DeltaTransformFilter implements PathConsumer2D {
   PathConsumer2D? _out;
   double _mxx = 0, _mxy = 0, _myx = 0, _myy = 0;
 
-  DeltaTransformFilter init(PathConsumer2D out, double mxx, double mxy, double myx, double myy) {
+  DeltaTransformFilter init(
+      PathConsumer2D out, double mxx, double mxy, double myx, double myy) {
     _out = out;
-    _mxx = mxx; _mxy = mxy;
-    _myx = myx; _myy = myy;
+    _mxx = mxx;
+    _mxy = mxy;
+    _myx = myx;
+    _myy = myy;
     return this;
   }
 
@@ -249,14 +273,19 @@ class DeltaTransformFilter implements PathConsumer2D {
   @override
   void quadTo(double x1, double y1, double x2, double y2) {
     _out!.quadTo(x1 * _mxx + y1 * _mxy, x1 * _myx + y1 * _myy,
-                 x2 * _mxx + y2 * _mxy, x2 * _myx + y2 * _myy);
+        x2 * _mxx + y2 * _mxy, x2 * _myx + y2 * _myy);
   }
 
   @override
-  void curveTo(double x1, double y1, double x2, double y2, double x3, double y3) {
-    _out!.curveTo(x1 * _mxx + y1 * _mxy, x1 * _myx + y1 * _myy,
-                  x2 * _mxx + y2 * _mxy, x2 * _myx + y2 * _myy,
-                  x3 * _mxx + y3 * _mxy, x3 * _myx + y3 * _myy);
+  void curveTo(
+      double x1, double y1, double x2, double y2, double x3, double y3) {
+    _out!.curveTo(
+        x1 * _mxx + y1 * _mxy,
+        x1 * _myx + y1 * _myy,
+        x2 * _mxx + y2 * _mxy,
+        x2 * _myx + y2 * _myy,
+        x3 * _mxx + y3 * _mxy,
+        x3 * _myx + y3 * _myy);
   }
 
   @override
@@ -287,7 +316,8 @@ class Path2DWrapper implements PathConsumer2D {
   void pathDone() {}
 
   @override
-  void curveTo(double x1, double y1, double x2, double y2, double x3, double y3) {
+  void curveTo(
+      double x1, double y1, double x2, double y2, double x3, double y3) {
     _p2d!.curveTo(x1, y1, x2, y2, x3, y3);
   }
 

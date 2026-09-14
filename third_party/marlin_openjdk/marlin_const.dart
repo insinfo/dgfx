@@ -40,8 +40,8 @@ abstract class MarlinConst {
   static const int subpixelLgPositionsY = 3; // 8 subpixels
 
   // Number of subpixels
-  static const int subpixelPositionsX = 1 << subpixelLgPositionsX;  // 8
-  static const int subpixelPositionsY = 1 << subpixelLgPositionsY;  // 8
+  static const int subpixelPositionsX = 1 << subpixelLgPositionsX; // 8
+  static const int subpixelPositionsY = 1 << subpixelLgPositionsY; // 8
 
   // Subpixel masks
   static const int subpixelMaskX = subpixelPositionsX - 1; // 7
@@ -92,7 +92,7 @@ abstract class MarlinConst {
 
   // Cubic curve flattening constants
   static const int cubCountLg = 2;
-  static const int cubCount = 1 << cubCountLg;  // 4
+  static const int cubCount = 1 << cubCountLg; // 4
   static const int cubCount2 = 1 << (2 * cubCountLg); // 16
   static const int cubCount3 = 1 << (3 * cubCountLg); // 64
   static const double cubInvCount = 1.0 / cubCount;

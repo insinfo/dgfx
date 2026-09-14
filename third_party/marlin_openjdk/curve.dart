@@ -43,7 +43,7 @@ class Curve {
   double bx = 0, by = 0;
   double cx = 0, cy = 0;
   double dx = 0, dy = 0;
-  
+
   // Derivative coefficients
   double dax = 0, day = 0;
   double dbx = 0, dby = 0;
@@ -58,17 +58,24 @@ class Curve {
     switch (type) {
       case 8:
         setCubic(
-          points[0], points[1],
-          points[2], points[3],
-          points[4], points[5],
-          points[6], points[7],
+          points[0],
+          points[1],
+          points[2],
+          points[3],
+          points[4],
+          points[5],
+          points[6],
+          points[7],
         );
         break;
       case 6:
         setQuad(
-          points[0], points[1],
-          points[2], points[3],
-          points[4], points[5],
+          points[0],
+          points[1],
+          points[2],
+          points[3],
+          points[4],
+          points[5],
         );
         break;
       default:
@@ -78,10 +85,14 @@ class Curve {
 
   /// Set cubic Bezier curve from 4 control points
   void setCubic(
-    double x1, double y1,
-    double x2, double y2,
-    double x3, double y3,
-    double x4, double y4,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+    double x3,
+    double y3,
+    double x4,
+    double y4,
   ) {
     // Compute polynomial coefficients
     ax = 3.0 * (x2 - x3) + x4 - x1;
@@ -92,7 +103,7 @@ class Curve {
     cy = 3.0 * (y2 - y1);
     dx = x1;
     dy = y1;
-    
+
     // Derivative coefficients
     dax = 3.0 * ax;
     day = 3.0 * ay;
@@ -102,9 +113,12 @@ class Curve {
 
   /// Set quadratic Bezier curve from 3 control points
   void setQuad(
-    double x1, double y1,
-    double x2, double y2,
-    double x3, double y3,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+    double x3,
+    double y3,
   ) {
     ax = 0;
     ay = 0;
@@ -114,7 +128,7 @@ class Curve {
     cy = 2.0 * (y2 - y1);
     dx = x1;
     dy = y1;
-    
+
     dax = 0;
     day = 0;
     dbx = 2.0 * bx;
@@ -159,141 +173,147 @@ class Curve {
     final double c = cy * dbx - cx * dby;
     return Helpers.quadraticRoots(a, b, c, pts, off);
   }
-  
+
   // finds points where the first and second derivative are
   // perpendicular. This happens when g(t) = f'(t)*f''(t) == 0 (where
   // * is a dot product).
   int perpendiculardfddf(List<double> pts, int off) {
-      final double a = 2.0 * (dax * dax + day * day);
-      final double b = 3.0 * (dax * dbx + day * dby);
-      final double c = 2.0 * (dax * cx + day * cy) + dbx * dbx + dby * dby;
-      final double d = dbx * cx + dby * cy;
-      return Helpers.cubicRootsInAB(d, a, b, c, pts, off, 0.0, 1.0);
+    final double a = 2.0 * (dax * dax + day * day);
+    final double b = 3.0 * (dax * dbx + day * dby);
+    final double c = 2.0 * (dax * cx + day * cy) + dbx * dbx + dby * dby;
+    final double d = dbx * cx + dby * cy;
+    return Helpers.cubicRootsInAB(d, a, b, c, pts, off, 0.0, 1.0);
   }
-  
+
   int rootsOfROCMinusW(List<double> roots, int off, double w, double err) {
-       int ret = off;
-       int numPerpdfddf = perpendiculardfddf(roots, off);
-       double t0 = 0.0;
-       double ft0 = _ROCsq(t0) - w * w;
-       
-       roots[off + numPerpdfddf] = 1.0;
-       numPerpdfddf++;
-       
-       for(int i = off; i < off + numPerpdfddf; i++) {
-           double t1 = roots[i];
-           double ft1 = _ROCsq(t1) - w * w;
-           if (ft0 == 0.0) {
-               roots[ret++] = t0;
-           } else if (ft1 * ft0 < 0.0) {
-               roots[ret++] = _falsePositionROCsqMinusX(t0, t1, w * w, err);
-           }
-           t0 = t1;
-           ft0 = ft1;
-       }
-       return ret - off;
-  }
-  
-  double _ROCsq(double t) {
-      final double dx = t * (t * dax + dbx) + cx;
-      final double dy = t * (t * day + dby) + cy;
-      final double ddx = 2.0 * dax * t + dbx;
-      final double ddy = 2.0 * day * t + dby;
-      final double dx2dy2 = dx * dx + dy * dy;
-      final double ddx2ddy2 = ddx * ddx + ddy * ddy;
-      final double ddxdxddydy = ddx * dx + ddy * dy;
-      double denom = dx2dy2 * ddx2ddy2 - ddxdxddydy * ddxdxddydy;
-      if (denom == 0) return double.infinity; // Prevent NaN if possible, or handle
-      return dx2dy2 * ((dx2dy2 * dx2dy2) / denom);
-  }
-  
-  double _eliminateInf(double x) {
-      if (x == double.infinity) return double.maxFinite;
-      if (x == double.negativeInfinity) return double.minPositive; // or -maxFinite?
-      return x;
-  }
-  
-  double _falsePositionROCsqMinusX(double x0, double x1, double x, double err) {
-      const int iterLimit = 100;
-      int side = 0;
-      double t = x1;
-      double ft = _eliminateInf(_ROCsq(t) - x);
-      double s = x0;
-      double fs = _eliminateInf(_ROCsq(s) - x);
-      double r = s;
-      
-      for(int i=0; i<iterLimit && (t - s).abs() > err * (t + s).abs(); i++) {
-          r = (fs * t - ft * s) / (fs - ft);
-          double fr = _ROCsq(r) - x;
-          if (_sameSign(fr, ft)) {
-              ft = fr; t = r;
-              if (side < 0) {
-                  fs /= (1 << (-side));
-                  side--;
-              } else {
-                  side = -1;
-              }
-          } else if (fr * fs > 0.0) {
-              fs = fr; s = r;
-              if (side > 0) {
-                  ft /= (1 << side);
-                  side++;
-              } else {
-                  side = 1;
-              }
-          } else {
-              break;
-          }
+    int ret = off;
+    int numPerpdfddf = perpendiculardfddf(roots, off);
+    double t0 = 0.0;
+    double ft0 = _ROCsq(t0) - w * w;
+
+    roots[off + numPerpdfddf] = 1.0;
+    numPerpdfddf++;
+
+    for (int i = off; i < off + numPerpdfddf; i++) {
+      double t1 = roots[i];
+      double ft1 = _ROCsq(t1) - w * w;
+      if (ft0 == 0.0) {
+        roots[ret++] = t0;
+      } else if (ft1 * ft0 < 0.0) {
+        roots[ret++] = _falsePositionROCsqMinusX(t0, t1, w * w, err);
       }
-      return r;
+      t0 = t1;
+      ft0 = ft1;
+    }
+    return ret - off;
   }
-  
+
+  double _ROCsq(double t) {
+    final double dx = t * (t * dax + dbx) + cx;
+    final double dy = t * (t * day + dby) + cy;
+    final double ddx = 2.0 * dax * t + dbx;
+    final double ddy = 2.0 * day * t + dby;
+    final double dx2dy2 = dx * dx + dy * dy;
+    final double ddx2ddy2 = ddx * ddx + ddy * ddy;
+    final double ddxdxddydy = ddx * dx + ddy * dy;
+    double denom = dx2dy2 * ddx2ddy2 - ddxdxddydy * ddxdxddydy;
+    if (denom == 0)
+      return double.infinity; // Prevent NaN if possible, or handle
+    return dx2dy2 * ((dx2dy2 * dx2dy2) / denom);
+  }
+
+  double _eliminateInf(double x) {
+    if (x == double.infinity) return double.maxFinite;
+    if (x == double.negativeInfinity)
+      return double.minPositive; // or -maxFinite?
+    return x;
+  }
+
+  double _falsePositionROCsqMinusX(double x0, double x1, double x, double err) {
+    const int iterLimit = 100;
+    int side = 0;
+    double t = x1;
+    double ft = _eliminateInf(_ROCsq(t) - x);
+    double s = x0;
+    double fs = _eliminateInf(_ROCsq(s) - x);
+    double r = s;
+
+    for (int i = 0; i < iterLimit && (t - s).abs() > err * (t + s).abs(); i++) {
+      r = (fs * t - ft * s) / (fs - ft);
+      double fr = _ROCsq(r) - x;
+      if (_sameSign(fr, ft)) {
+        ft = fr;
+        t = r;
+        if (side < 0) {
+          fs /= (1 << (-side));
+          side--;
+        } else {
+          side = -1;
+        }
+      } else if (fr * fs > 0.0) {
+        fs = fr;
+        s = r;
+        if (side > 0) {
+          ft /= (1 << side);
+          side++;
+        } else {
+          side = 1;
+        }
+      } else {
+        break;
+      }
+    }
+    return r;
+  }
+
   bool _sameSign(double x, double y) {
-      return (x < 0.0 && y < 0.0) || (x > 0.0 && y > 0.0);
+    return (x < 0.0 && y < 0.0) || (x > 0.0 && y > 0.0);
   }
-  
-  BreakPtrIterator breakPtsAtTs(List<double> pts, int type, List<double> Ts, int numTs) {
-      _iterator.init(pts, type, Ts, numTs);
-      return _iterator;
+
+  BreakPtrIterator breakPtsAtTs(
+      List<double> pts, int type, List<double> Ts, int numTs) {
+    _iterator.init(pts, type, Ts, numTs);
+    return _iterator;
   }
 }
 
 class BreakPtrIterator {
-    int _nextCurveIdx = 0;
-    int _curCurveOff = 0;
-    double _prevT = 0.0;
-    List<double>? _pts;
-    int _type = 0;
-    List<double>? _ts;
-    int _numTs = 0;
+  int _nextCurveIdx = 0;
+  int _curCurveOff = 0;
+  double _prevT = 0.0;
+  List<double>? _pts;
+  int _type = 0;
+  List<double>? _ts;
+  int _numTs = 0;
 
-    void init(List<double> pts, int type, List<double> ts, int numTs) {
-        _pts = pts;
-        _type = type;
-        _ts = ts;
-        _numTs = numTs;
-        _nextCurveIdx = 0;
-        _curCurveOff = 0;
-        _prevT = 0.0;
-    }
+  void init(List<double> pts, int type, List<double> ts, int numTs) {
+    _pts = pts;
+    _type = type;
+    _ts = ts;
+    _numTs = numTs;
+    _nextCurveIdx = 0;
+    _curCurveOff = 0;
+    _prevT = 0.0;
+  }
 
-    bool hasNext() {
-        return _nextCurveIdx <= _numTs;
-    }
+  bool hasNext() {
+    return _nextCurveIdx <= _numTs;
+  }
 
-    int next() {
-        int ret;
-        if (_nextCurveIdx < _numTs) {
-            double curT = _ts![_nextCurveIdx];
-            double splitT = (curT - _prevT) / (1.0 - _prevT);
-            Helpers.subdivideAt(splitT, _pts!, _curCurveOff, _pts, 0, _pts, _type, _type);
-            _prevT = curT;
-            ret = 0;
-            _curCurveOff = _type;
-        } else {
-            ret = _curCurveOff;
-        }
-        _nextCurveIdx++;
-        return ret;
+  int next() {
+    int ret;
+    if (_nextCurveIdx < _numTs) {
+      double curT = _ts![_nextCurveIdx];
+      double splitT = (curT - _prevT) / (1.0 - _prevT);
+      Helpers.subdivideAt(
+          splitT, _pts!, _curCurveOff, _pts, 0, _pts, _type, _type);
+      _prevT = curT;
+      ret = 0;
+      _curCurveOff = _type;
+    } else {
+      ret = _curCurveOff;
     }
+    _nextCurveIdx++;
+    return ret;
+  }
 }

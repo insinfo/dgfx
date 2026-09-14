@@ -442,7 +442,8 @@ class MarlinRenderer implements PathConsumer2D {
         FloatMath.maxInt(FloatMath.ceilInt(_edgeMinX - 0.5), _boundsMinX);
     final int spmaxX =
         FloatMath.minInt(FloatMath.ceilInt(_edgeMaxX - 0.5), _boundsMaxX - 1);
-    final int spminY = FloatMath.maxInt(FloatMath.ceilInt(_edgeMinY), _boundsMinY);
+    final int spminY =
+        FloatMath.maxInt(FloatMath.ceilInt(_edgeMinY), _boundsMinY);
 
     int maxY = FloatMath.ceilInt(_edgeMaxY);
     final int spmaxY;
@@ -456,9 +457,11 @@ class MarlinRenderer implements PathConsumer2D {
     if (spminX > spmaxX || spminY > spmaxY) return;
 
     final int pminX = spminX >> _subpixelLgPositionsX;
-    final int pmaxX = (spmaxX + MarlinConst.subpixelMaskX) >> _subpixelLgPositionsX;
+    final int pmaxX =
+        (spmaxX + MarlinConst.subpixelMaskX) >> _subpixelLgPositionsX;
     final int pminY = spminY >> _subpixelLgPositionsY;
-    final int pmaxY = (spmaxY + MarlinConst.subpixelMaskY) >> _subpixelLgPositionsY;
+    final int pmaxY =
+        (spmaxY + MarlinConst.subpixelMaskY) >> _subpixelLgPositionsY;
 
     _cache.init(pminX, pminY, pmaxX, pmaxY);
 
@@ -543,8 +546,7 @@ class MarlinRenderer implements PathConsumer2D {
         for (int i = 0; i < numCrossings; i++) {
           final int ecur = _edgePtrs[i];
           int curx = _edges[ecur + _offCurX];
-          final int cross =
-              _i32(curx << 1) | (_edges[ecur + _offYMaxOr] & 0x1);
+          final int cross = _i32(curx << 1) | (_edges[ecur + _offYMaxOr] & 0x1);
 
           curx = _i32(curx + _edges[ecur + _offBumpX]);
           final int err =
@@ -560,7 +562,8 @@ class MarlinRenderer implements PathConsumer2D {
               int high = i - 1;
               while (low <= high) {
                 final int mid = (low + high) >> 1;
-                if (_crossingLess(_crossings[mid], _edgePtrs[mid], cross, ecur)) {
+                if (_crossingLess(
+                    _crossings[mid], _edgePtrs[mid], cross, ecur)) {
                   low = mid + 1;
                 } else {
                   high = mid - 1;

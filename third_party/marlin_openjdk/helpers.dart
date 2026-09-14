@@ -48,12 +48,15 @@ class Helpers {
   /// Find roots of quadratic equation: a*t^2 + b*t + c = 0
   /// Returns number of roots found
   static int quadraticRoots(
-    double a, double b, double c,
-    List<double> zeroes, int off,
+    double a,
+    double b,
+    double c,
+    List<double> zeroes,
+    int off,
   ) {
     int ret = off;
     double t;
-    
+
     if (a != 0.0) {
       final double dis = b * b - 4 * a * c;
       if (dis > 0.0) {
@@ -81,9 +84,14 @@ class Helpers {
   /// Find roots of cubic equation in interval [A, B)
   /// d*t^3 + a*t^2 + b*t + c = 0
   static int cubicRootsInAB(
-    double d, double a, double b, double c,
-    List<double> pts, int off,
-    double A, double B,
+    double d,
+    double a,
+    double b,
+    double c,
+    List<double> pts,
+    int off,
+    double A,
+    double B,
   ) {
     if (d == 0.0) {
       int num = quadraticRoots(a, b, c, pts, off);
@@ -156,8 +164,11 @@ class Helpers {
 
   /// Filter out values not in [a, b)
   static int filterOutNotInAB(
-    List<double> nums, int off, int len,
-    double a, double b,
+    List<double> nums,
+    int off,
+    int len,
+    double a,
+    double b,
   ) {
     int ret = off;
     for (int i = off, end = off + len; i < end; i++) {
@@ -177,9 +188,12 @@ class Helpers {
 
   /// Subdivide curve (6 for quad, 8 for cubic)
   static void subdivide(
-    List<double> src, int srcoff,
-    List<double>? left, int leftoff,
-    List<double>? right, int rightoff,
+    List<double> src,
+    int srcoff,
+    List<double>? left,
+    int leftoff,
+    List<double>? right,
+    int rightoff,
     int type,
   ) {
     switch (type) {
@@ -196,9 +210,12 @@ class Helpers {
 
   /// Subdivide cubic curve at midpoint
   static void subdivideCubic(
-    List<double> src, int srcoff,
-    List<double>? left, int leftoff,
-    List<double>? right, int rightoff,
+    List<double> src,
+    int srcoff,
+    List<double>? left,
+    int leftoff,
+    List<double>? right,
+    int rightoff,
   ) {
     double x1 = src[srcoff + 0];
     double y1 = src[srcoff + 1];
@@ -208,7 +225,7 @@ class Helpers {
     double ctrly2 = src[srcoff + 5];
     double x2 = src[srcoff + 6];
     double y2 = src[srcoff + 7];
-    
+
     if (left != null) {
       left[leftoff + 0] = x1;
       left[leftoff + 1] = y1;
@@ -217,7 +234,7 @@ class Helpers {
       right[rightoff + 6] = x2;
       right[rightoff + 7] = y2;
     }
-    
+
     x1 = (x1 + ctrlx1) / 2.0;
     y1 = (y1 + ctrly1) / 2.0;
     x2 = (x2 + ctrlx2) / 2.0;
@@ -230,7 +247,7 @@ class Helpers {
     ctrly2 = (y2 + centery) / 2.0;
     centerx = (ctrlx1 + ctrlx2) / 2.0;
     centery = (ctrly1 + ctrly2) / 2.0;
-    
+
     if (left != null) {
       left[leftoff + 2] = x1;
       left[leftoff + 3] = y1;
@@ -252,9 +269,12 @@ class Helpers {
   /// Subdivide cubic curve at parameter t
   static void subdivideCubicAt(
     double t,
-    List<double> src, int srcoff,
-    List<double>? left, int leftoff,
-    List<double>? right, int rightoff,
+    List<double> src,
+    int srcoff,
+    List<double>? left,
+    int leftoff,
+    List<double>? right,
+    int rightoff,
   ) {
     double x1 = src[srcoff + 0];
     double y1 = src[srcoff + 1];
@@ -264,7 +284,7 @@ class Helpers {
     double ctrly2 = src[srcoff + 5];
     double x2 = src[srcoff + 6];
     double y2 = src[srcoff + 7];
-    
+
     if (left != null) {
       left[leftoff + 0] = x1;
       left[leftoff + 1] = y1;
@@ -273,7 +293,7 @@ class Helpers {
       right[rightoff + 6] = x2;
       right[rightoff + 7] = y2;
     }
-    
+
     x1 = x1 + t * (ctrlx1 - x1);
     y1 = y1 + t * (ctrly1 - y1);
     x2 = ctrlx2 + t * (x2 - ctrlx2);
@@ -286,7 +306,7 @@ class Helpers {
     ctrly2 = centery + t * (y2 - centery);
     centerx = ctrlx1 + t * (ctrlx2 - ctrlx1);
     centery = ctrly1 + t * (ctrly2 - ctrly1);
-    
+
     if (left != null) {
       left[leftoff + 2] = x1;
       left[leftoff + 3] = y1;
@@ -307,9 +327,12 @@ class Helpers {
 
   /// Subdivide quadratic curve at midpoint
   static void subdivideQuad(
-    List<double> src, int srcoff,
-    List<double>? left, int leftoff,
-    List<double>? right, int rightoff,
+    List<double> src,
+    int srcoff,
+    List<double>? left,
+    int leftoff,
+    List<double>? right,
+    int rightoff,
   ) {
     double x1 = src[srcoff + 0];
     double y1 = src[srcoff + 1];
@@ -317,7 +340,7 @@ class Helpers {
     double ctrly = src[srcoff + 3];
     double x2 = src[srcoff + 4];
     double y2 = src[srcoff + 5];
-    
+
     if (left != null) {
       left[leftoff + 0] = x1;
       left[leftoff + 1] = y1;
@@ -326,14 +349,14 @@ class Helpers {
       right[rightoff + 4] = x2;
       right[rightoff + 5] = y2;
     }
-    
+
     x1 = (x1 + ctrlx) / 2.0;
     y1 = (y1 + ctrly) / 2.0;
     x2 = (x2 + ctrlx) / 2.0;
     y2 = (y2 + ctrly) / 2.0;
     ctrlx = (x1 + x2) / 2.0;
     ctrly = (y1 + y2) / 2.0;
-    
+
     if (left != null) {
       left[leftoff + 2] = x1;
       left[leftoff + 3] = y1;
@@ -351,9 +374,12 @@ class Helpers {
   /// Subdivide quadratic curve at parameter t
   static void subdivideQuadAt(
     double t,
-    List<double> src, int srcoff,
-    List<double>? left, int leftoff,
-    List<double>? right, int rightoff,
+    List<double> src,
+    int srcoff,
+    List<double>? left,
+    int leftoff,
+    List<double>? right,
+    int rightoff,
   ) {
     double x1 = src[srcoff + 0];
     double y1 = src[srcoff + 1];
@@ -361,7 +387,7 @@ class Helpers {
     double ctrly = src[srcoff + 3];
     double x2 = src[srcoff + 4];
     double y2 = src[srcoff + 5];
-    
+
     if (left != null) {
       left[leftoff + 0] = x1;
       left[leftoff + 1] = y1;
@@ -370,14 +396,14 @@ class Helpers {
       right[rightoff + 4] = x2;
       right[rightoff + 5] = y2;
     }
-    
+
     x1 = x1 + t * (ctrlx - x1);
     y1 = y1 + t * (ctrly - y1);
     x2 = ctrlx + t * (x2 - ctrlx);
     y2 = ctrly + t * (y2 - ctrly);
     ctrlx = x1 + t * (x2 - x1);
     ctrly = y1 + t * (y2 - y1);
-    
+
     if (left != null) {
       left[leftoff + 2] = x1;
       left[leftoff + 3] = y1;
@@ -395,9 +421,12 @@ class Helpers {
   /// Subdivide at parameter t
   static void subdivideAt(
     double t,
-    List<double> src, int srcoff,
-    List<double>? left, int leftoff,
-    List<double>? right, int rightoff,
+    List<double> src,
+    int srcoff,
+    List<double>? left,
+    int leftoff,
+    List<double>? right,
+    int rightoff,
     int size,
   ) {
     switch (size) {
