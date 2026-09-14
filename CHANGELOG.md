@@ -34,6 +34,13 @@ rather than a distributable package.
 
 ### Fixed
 
+- The gradient fetchers built a lookup table of 256 entries for every
+  gradient, where Blend2D sizes it from the stops and goes up to 1024. A table
+  entry spanning a colour change is interpolated, so an abrupt change arrived
+  as a ramp: across a sweep of step positions at 2479 px wide, the edge landed
+  up to 5.3 px from where the stops put it, with a 10 px ramp at a sixth of
+  the positions. Sized as the original does it, the worst case is 1.6 px and
+  no ramp. The table is now built in one place instead of three copies.
 - Curve flattening underestimated the area the curves enclose. An inscribed
   polyline always encloses less than the curve, and with a fixed tolerance the
   relative error grows as the radius falls: a circle of radius 2 px rasterized

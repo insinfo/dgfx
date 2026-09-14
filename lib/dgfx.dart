@@ -48,6 +48,7 @@ export 'src/blend2d/pipeline/bl_compop_kernel.dart';
 export 'src/blend2d/pipeline/bl_fetch_conic_gradient.dart';
 export 'src/blend2d/pipeline/bl_fetch_gouraud.dart';
 export 'src/blend2d/pipeline/bl_fetch_linear_gradient.dart';
+export 'src/blend2d/pipeline/bl_gradient_lut.dart';
 export 'src/blend2d/pipeline/bl_fetch_pattern.dart';
 export 'src/blend2d/pipeline/bl_fetch_radial_gradient.dart';
 export 'src/blend2d/pipeline/bl_fetch_solid.dart';
