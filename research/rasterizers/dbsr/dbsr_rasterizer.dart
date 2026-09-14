@@ -578,7 +578,8 @@ class DBSRRasterizer implements PolygonContract {
       if (distSq < minDistSq) minDistSq = distSq;
     }
 
-    final inside = windingRule == 0 ? ((parityCrossings & 1) != 0) : winding != 0;
+    final inside =
+        windingRule == 0 ? ((parityCrossings & 1) != 0) : winding != 0;
     final minAbs = minDistSq.isFinite ? math.sqrt(minDistSq) : 0.0;
     final signedDist = inside ? -minAbs : minAbs;
     return _distanceLUT.getWeight((signedDist * _fixedOne).toInt());

@@ -13,10 +13,8 @@ import '../research/png/png_writer.dart';
 import '../research/rasterizers/rasterizers.dart';
 
 // Import explícito das duas versões Blend2D (pra garantir acesso mesmo sem export)
-import '../research/rasterizers/blend2d/blend2d_rasterizer.dart'
-    as b2d1;
-import '../research/rasterizers/blend2d/blend2d_rasterizer2.dart'
-    as b2d2;
+import '../research/rasterizers/blend2d/blend2d_rasterizer.dart' as b2d1;
+import '../research/rasterizers/blend2d/blend2d_rasterizer2.dart' as b2d2;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POLÍGONOS DE TESTE
@@ -429,8 +427,11 @@ Future<void> main() async {
   // ─── MSAA ──────────────────────────────────────────────────────────────
   print('Testing MSAA (4x4)...');
   try {
-    final msaa =
-        MSAARasterizer(width: width, height: height, samplesPerAxis: 4, enableTileCulling: false);
+    final msaa = MSAARasterizer(
+        width: width,
+        height: height,
+        samplesPerAxis: 4,
+        enableTileCulling: false);
     results.add(await runBenchmark(
       'MSAA 4x4',
       (vertices, color) => msaa.drawPolygon(vertices, color),

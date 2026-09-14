@@ -17,4 +17,3 @@ abstract class PolygonContract {
     List<int>? contourVertexCounts,
   });
 }
-

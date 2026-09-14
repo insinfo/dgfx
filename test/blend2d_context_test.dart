@@ -323,9 +323,13 @@ void main() {
     }
 
     test('retângulo alinhado cobre exatamente a sua área', () async {
-      expect(await painted(16, (ctx) => ctx.fillRect(4, 4, 4, 4, color: 0xFF000000)),
+      expect(
+          await painted(
+              16, (ctx) => ctx.fillRect(4, 4, 4, 4, color: 0xFF000000)),
           closeTo(16.0, 1e-9));
-      expect(await painted(32, (ctx) => ctx.fillRect(2, 3, 20, 11, color: 0xFF000000)),
+      expect(
+          await painted(
+              32, (ctx) => ctx.fillRect(2, 3, 20, 11, color: 0xFF000000)),
           closeTo(220.0, 1e-9));
     });
 

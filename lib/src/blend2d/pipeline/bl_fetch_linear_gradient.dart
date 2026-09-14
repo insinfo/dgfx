@@ -4,7 +4,6 @@ import '../core/bl_types.dart';
 import 'bl_gradient_lut.dart';
 
 class BLLinearGradientFetcher {
-
   final BLLinearGradient gradient;
   final Uint32List _lut;
   final double _x0;

@@ -104,9 +104,8 @@ class BLDasher {
         vertOffset += cnt;
         continue;
       }
-      final bool closed = closedFlags != null &&
-          ci < closedFlags.length &&
-          closedFlags[ci];
+      final bool closed =
+          closedFlags != null && ci < closedFlags.length && closedFlags[ci];
       _dashContour(
         result,
         verts,

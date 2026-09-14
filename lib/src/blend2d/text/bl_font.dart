@@ -472,8 +472,8 @@ class BLFontFace {
     if (out == null) return null;
 
     if (!useDefaultInstance) return out;
-    final target = _glyphOutlineUnitsCache.putIfAbsent(
-        tol, () => <int, BLPathData>{});
+    final target =
+        _glyphOutlineUnitsCache.putIfAbsent(tol, () => <int, BLPathData>{});
     // Um consumidor que varre várias tolerâncias não pode fazer o cache
     // crescer sem limite: os baldes antigos saem junto com as entradas.
     if (_glyphOutlineUnitsCache.length > 8) {
@@ -1857,6 +1857,7 @@ class BLFont {
   final BLFontFace face;
   final double size;
   final List<double> variationCoordinates;
+
   /// Cache de contornos escalados, indexado pela tolerância e pelo GID.
   final Map<double, Map<int, BLPathData>> _glyphOutlineCache =
       <double, Map<int, BLPathData>>{};
@@ -1927,10 +1928,11 @@ class BLFont {
           contourCounts == null ? null : List<int>.from(contourCounts),
     );
 
-    final target = _glyphOutlineCache.putIfAbsent(tol, () => <int, BLPathData>{});
+    final target =
+        _glyphOutlineCache.putIfAbsent(tol, () => <int, BLPathData>{});
     if (_glyphOutlineCache.length > 8) {
-      final oldest =
-          _glyphOutlineCache.keys.firstWhere((key) => key != tol, orElse: () => tol);
+      final oldest = _glyphOutlineCache.keys
+          .firstWhere((key) => key != tol, orElse: () => tol);
       if (oldest != tol) _glyphOutlineCache.remove(oldest);
     }
     if (target.length >= 4096 && !target.containsKey(gid)) {

@@ -163,7 +163,8 @@ Uint8List buildType1({
   // --- porção privada, antes da encriptação eexec ---------------------------
   final private = BytesBuilder()
     ..add(_ascii('dup /Private 12 dict dup begin\n'))
-    ..add(_ascii('/RD {string currentfile exch readstring pop} executeonly def\n'))
+    ..add(_ascii(
+        '/RD {string currentfile exch readstring pop} executeonly def\n'))
     ..add(_ascii('/ND {noaccess def} executeonly def\n'))
     ..add(_ascii('/NP {noaccess put} executeonly def\n'))
     ..add(_ascii('/lenIV $lenIV def\n'))
@@ -194,8 +195,7 @@ Uint8List buildType1({
     ..add(_ascii('end\n'))
     ..add(_ascii('mark currentfile closefile\n'));
 
-  final encrypted =
-      blType1Encrypt(private.toBytes(), blType1EexecKey, 4);
+  final encrypted = blType1Encrypt(private.toBytes(), blType1EexecKey, 4);
 
   final trailer = StringBuffer();
   for (var line = 0; line < 8; line++) {
@@ -204,8 +204,7 @@ Uint8List buildType1({
   trailer.writeln('cleartomark');
 
   final clearBytes = _ascii(clear.toString());
-  final body =
-      hexEexec ? _ascii('${_toHex(encrypted)}\n') : encrypted;
+  final body = hexEexec ? _ascii('${_toHex(encrypted)}\n') : encrypted;
   final trailerBytes = _ascii(trailer.toString());
 
   if (pfb) return _wrapPFB(clearBytes, body, trailerBytes);

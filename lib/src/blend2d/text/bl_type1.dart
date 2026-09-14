@@ -659,7 +659,8 @@ class _T1Interpreter {
         // Multiple Master: os primeiros `k` argumentos são os valores da
         // instância base e os demais são deltas por eixo. Sem vetor de pesos
         // a instância correta é a base, então devolvemos os `k` primeiros.
-        final k = const <int, int>{14: 1, 15: 2, 16: 3, 17: 4, 18: 6}[otherSubr]!;
+        final k =
+            const <int, int>{14: 1, 15: 2, 16: 3, 17: 4, 18: 6}[otherSubr]!;
         for (var i = 0; i < k && i < args.length; i++) {
           psResults.add(args[i]);
         }
@@ -752,7 +753,8 @@ class BLType1Font {
     final hasHeader =
         p + 2 <= data.length && data[p] == 0x25 && data[p + 1] == 0x21;
 
-    final window = data.length < 8192 ? data : Uint8List.sublistView(data, 0, 8192);
+    final window =
+        data.length < 8192 ? data : Uint8List.sublistView(data, 0, 8192);
     final hasEexec = _indexOfAscii(window, 'eexec', 0) >= 0;
     if (hasHeader && hasEexec) return true;
     if (!hasEexec) return false;
@@ -766,9 +768,8 @@ class BLType1Font {
     final bytes = _unwrapPFB(data);
 
     final eexecPos = _indexOfAscii(bytes, 'eexec', 0);
-    final clear = eexecPos < 0
-        ? bytes
-        : Uint8List.sublistView(bytes, 0, eexecPos);
+    final clear =
+        eexecPos < 0 ? bytes : Uint8List.sublistView(bytes, 0, eexecPos);
 
     Uint8List private = Uint8List(0);
     if (eexecPos >= 0) {
@@ -1095,7 +1096,8 @@ class BLType1Font {
     final subrs = List<Uint8List>.filled(count, Uint8List(0), growable: false);
     var read = 0;
     var guard = 0;
-    while (read < count && reader.pos < data.length && guard++ < count * 8 + 64) {
+    while (
+        read < count && reader.pos < data.length && guard++ < count * 8 + 64) {
       final token = reader.nextToken();
       if (token.isEmpty) break;
       if (token == 'ND' || token == '|-' || token == 'noaccess') continue;

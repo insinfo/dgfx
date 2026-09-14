@@ -20,8 +20,7 @@ import '../research/png/png_writer.dart';
 import '../research/rasterizers/rasterizers.dart';
 import '../research/svg/svg_parser.dart';
 
-import '../research/rasterizers/blend2d/blend2d_rasterizer2.dart'
-    as b2d2;
+import '../research/rasterizers/blend2d/blend2d_rasterizer2.dart' as b2d2;
 
 const outputDir = 'output/svg_renders';
 

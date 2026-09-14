@@ -47,7 +47,6 @@ const List<double> _sampleOffsetsX = [
   5.0 / 6.0, // Linha inferior
 ];
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // LOOK-UP TABLE DE SUBPIXEL
 // ─────────────────────────────────────────────────────────────────────────────
@@ -205,8 +204,10 @@ class QCSRasterizer {
       // 3. Fase de Toggle / Winding por subamostra
       for (final edge in edges) {
         // Interseção na sub-scanline Superior
-        if ((edge.y0 <= yTop && edge.y1 > yTop) || (edge.y1 <= yTop && edge.y0 > yTop)) {
-          final x = edge.x0 + (yTop - edge.y0) * (edge.x1 - edge.x0) / (edge.y1 - edge.y0);
+        if ((edge.y0 <= yTop && edge.y1 > yTop) ||
+            (edge.y1 <= yTop && edge.y0 > yTop)) {
+          final x = edge.x0 +
+              (yTop - edge.y0) * (edge.x1 - edge.x0) / (edge.y1 - edge.y0);
           for (int s = 0; s < 3; s++) {
             final ix = (x - _sampleOffsetsX[s]).floor();
             if (ix >= -1 && ix < width) {
@@ -221,8 +222,10 @@ class QCSRasterizer {
           }
         }
         // Interseção na sub-scanline Inferior
-        if ((edge.y0 <= yBot && edge.y1 > yBot) || (edge.y1 <= yBot && edge.y0 > yBot)) {
-          final x = edge.x0 + (yBot - edge.y0) * (edge.x1 - edge.x0) / (edge.y1 - edge.y0);
+        if ((edge.y0 <= yBot && edge.y1 > yBot) ||
+            (edge.y1 <= yBot && edge.y0 > yBot)) {
+          final x = edge.x0 +
+              (yBot - edge.y0) * (edge.x1 - edge.x0) / (edge.y1 - edge.y0);
           for (int s = 3; s < 6; s++) {
             final ix = (x - _sampleOffsetsX[s]).floor();
             if (ix >= -1 && ix < width) {
@@ -240,7 +243,12 @@ class QCSRasterizer {
 
       // 4. Integração de Bits (Prefix XOR horizontal) + Blit
       int runningSignature = 0;
-      int runTopR = 0, runTopG = 0, runTopB = 0, runBotR = 0, runBotG = 0, runBotB = 0;
+      int runTopR = 0,
+          runTopG = 0,
+          runTopB = 0,
+          runBotR = 0,
+          runBotG = 0,
+          runBotB = 0;
       final rowOffset = py * width * 3;
 
       for (int px = 0; px < width; px++) {
@@ -272,7 +280,8 @@ class QCSRasterizer {
 
         final idx = rowOffset + px * 3;
 
-        if (runningSignature == 63) { // 100% Cobertura
+        if (runningSignature == 63) {
+          // 100% Cobertura
           _subpixelBuffer[idx + 0] = colorR;
           _subpixelBuffer[idx + 1] = colorG;
           _subpixelBuffer[idx + 2] = colorB;
@@ -282,9 +291,15 @@ class QCSRasterizer {
           final bgG = _subpixelBuffer[idx + 1];
           final bgB = _subpixelBuffer[idx + 2];
 
-          _subpixelBuffer[idx + 0] = ((colorR * intensityR + bgR * (255 - intensityR)) >> 8).clamp(0, 255);
-          _subpixelBuffer[idx + 1] = ((colorG * intensityG + bgG * (255 - intensityG)) >> 8).clamp(0, 255);
-          _subpixelBuffer[idx + 2] = ((colorB * intensityB + bgB * (255 - intensityB)) >> 8).clamp(0, 255);
+          _subpixelBuffer[idx + 0] =
+              ((colorR * intensityR + bgR * (255 - intensityR)) >> 8)
+                  .clamp(0, 255);
+          _subpixelBuffer[idx + 1] =
+              ((colorG * intensityG + bgG * (255 - intensityG)) >> 8)
+                  .clamp(0, 255);
+          _subpixelBuffer[idx + 2] =
+              ((colorB * intensityB + bgB * (255 - intensityB)) >> 8)
+                  .clamp(0, 255);
         }
       }
     }

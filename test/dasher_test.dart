@@ -110,8 +110,8 @@ void main() {
         ..moveTo(0, 0)
         ..lineTo(100, 0);
       // Offset 10 lands exactly on the first gap, so the line starts blank.
-      final dashed = BLDasher.dashPath(path, const [10.0, 10.0],
-          dashOffset: 10.0);
+      final dashed =
+          BLDasher.dashPath(path, const [10.0, 10.0], dashOffset: 10.0);
       final verts = dashed.toPathData().vertices;
       expect(verts[0], closeTo(10.0, 1e-9));
       expect(_totalLength(dashed), closeTo(50.0, 1e-9));
@@ -181,13 +181,13 @@ void main() {
       // gap — no merge. With offset 35 the contour starts inside the dash and
       // also ends inside it, so the last run must merge into the first.
       final path = BLPath()..addRect(0, 0, 10, 10);
-      final dashed = BLDasher.dashPath(path, const [30.0, 10.0],
-          dashOffset: 35.0);
+      final dashed =
+          BLDasher.dashPath(path, const [30.0, 10.0], dashOffset: 35.0);
       final data = dashed.toPathData();
       // One single merged run instead of two runs touching (0, 0).
       expect(data.contourVertexCounts, hasLength(1));
-      expect(_totalLength(dashed, includeClosingEdge: false),
-          closeTo(30.0, 1e-9));
+      expect(
+          _totalLength(dashed, includeClosingEdge: false), closeTo(30.0, 1e-9));
       // It must not be a closed contour: it is an arc of the perimeter.
       expect(data.contourClosed, [false]);
     });
@@ -363,8 +363,7 @@ void main() {
             ..moveTo(10, 10)
             ..lineTo(110, 10)
             ..close();
-          final dashed =
-              BLDasher.dashPath(path, pattern, dashOffset: offset);
+          final dashed = BLDasher.dashPath(path, pattern, dashOffset: offset);
           final spans = spansOf(dashed, 10, 110);
           for (var i = 1; i < spans.length; i++) {
             expect(spans[i][0], greaterThanOrEqualTo(spans[i - 1][1] - 1e-9),

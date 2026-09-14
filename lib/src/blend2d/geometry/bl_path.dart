@@ -373,8 +373,7 @@ class BLPath {
           final (c1x, c1y) = m.mapPoint(_points[p], _points[p + 1]);
           final (c2x, c2y) = m.mapPoint(_points[p + 2], _points[p + 3]);
           final (x, y) = m.mapPoint(_points[p + 4], _points[p + 5]);
-          out.cubicTo(c1x, c1y, c2x, c2y, x, y,
-              tolerance: _curveTolerance[c]);
+          out.cubicTo(c1x, c1y, c2x, c2y, x, y, tolerance: _curveTolerance[c]);
           p += 6;
           c++;
           break;
@@ -522,13 +521,8 @@ class BLPath {
           c++;
           break;
         case _BLVerb.cubicTo:
-          cubicTo(
-              other._points[p],
-              other._points[p + 1],
-              other._points[p + 2],
-              other._points[p + 3],
-              other._points[p + 4],
-              other._points[p + 5],
+          cubicTo(other._points[p], other._points[p + 1], other._points[p + 2],
+              other._points[p + 3], other._points[p + 4], other._points[p + 5],
               tolerance: other._curveTolerance[c]);
           p += 6;
           c++;

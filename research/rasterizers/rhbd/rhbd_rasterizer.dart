@@ -217,7 +217,8 @@ class RHBDRasterizer implements PolygonContract {
     final maxYi = maxY.ceil().clamp(0, height - 1).toInt();
     final edgeCount = edgeX1.length;
     if (edgeCount == 0) return;
-    final rowBuckets = _buildRowBuckets(minYi, maxYi, edgeCount, edgeY1, edgeY2);
+    final rowBuckets =
+        _buildRowBuckets(minYi, maxYi, edgeCount, edgeY1, edgeY2);
 
     final minTileX = (minXi ~/ kTileSize).clamp(0, tilesX - 1);
     final maxTileX = (maxXi ~/ kTileSize).clamp(0, tilesX - 1);

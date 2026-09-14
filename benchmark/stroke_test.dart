@@ -136,7 +136,9 @@ Future<void> main() async {
   }
   await PngWriter.saveRgba(
       'output/rasterization_benchmark/BLEND2D_PORT_STROKE_TEST.png',
-      rgba, w, h);
+      rgba,
+      w,
+      h);
 
   // Sanity check
   int nonWhite = 0;

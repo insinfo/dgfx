@@ -60,7 +60,8 @@ List<double> _createHexagon(double cx, double cy, double radius) {
   return out;
 }
 
-List<double> _createStar(double cx, double cy, double outerRadius, double innerRadius) {
+List<double> _createStar(
+    double cx, double cy, double outerRadius, double innerRadius) {
   final out = <double>[];
   const points = 5;
   const step = math.pi / points;
@@ -98,13 +99,23 @@ List<double> _createArcBand(
   return out;
 }
 
-List<double> _createThinLine(double x0, double y0, double x1, double y1, double thickness) {
+List<double> _createThinLine(
+    double x0, double y0, double x1, double y1, double thickness) {
   final dx = x1 - x0;
   final dy = y1 - y0;
   final len = math.sqrt(dx * dx + dy * dy);
   if (len <= 1e-9) {
     final h = thickness * 0.5;
-    return <double>[x0 - h, y0 - h, x0 + h, y0 - h, x0 + h, y0 + h, x0 - h, y0 + h];
+    return <double>[
+      x0 - h,
+      y0 - h,
+      x0 + h,
+      y0 - h,
+      x0 + h,
+      y0 + h,
+      x0 - h,
+      y0 + h
+    ];
   }
   final nx = -dy / len;
   final ny = dx / len;
@@ -358,12 +369,14 @@ Future<void> main() async {
         ((iterations * polygons.length) / (sw.elapsedMicroseconds / 1000000.0))
             .round();
 
-    await _saveImage('BLEND2D_PORT_PATTERN_AFFINE_BILINEAR', image.pixels, width, height);
+    await _saveImage(
+        'BLEND2D_PORT_PATTERN_AFFINE_BILINEAR', image.pixels, width, height);
 
     print('');
     print('Average: ${avgMs.toStringAsFixed(3)} ms/frame');
     print('Throughput: $polyPerSec poly/s');
-    print('Output: output/rasterization_benchmark/BLEND2D_PORT_PATTERN_AFFINE_BILINEAR.png');
+    print(
+        'Output: output/rasterization_benchmark/BLEND2D_PORT_PATTERN_AFFINE_BILINEAR.png');
   } finally {
     await ctx.dispose();
   }

@@ -434,9 +434,8 @@ void main() {
     // ser idêntica à do mesmo caminho sem `h`, em qualquer largura, qualquer
     // posição e qualquer orientação.
     test('`h` num caminho de dois pontos não muda a área coberta', () async {
-      Future<double> total(
-          double w, bool closed, double x0, double y0, double x1, double y1,
-          int cx0, int cy0, int cx1, int cy1) async {
+      Future<double> total(double w, bool closed, double x0, double y0,
+          double x1, double y1, int cx0, int cy0, int cx1, int cy1) async {
         final p = BLPath()
           ..moveTo(x0, y0)
           ..lineTo(x1, y1);
@@ -458,18 +457,18 @@ void main() {
       for (final w in <double>[1, 2, 3, 4]) {
         for (final off in <double>[0.0, 0.5]) {
           // Horizontal.
-          final ha = await total(w, false, 50, 100 + off, 150, 100 + off,
-              40, 90, 160, 110);
-          final hf = await total(w, true, 50, 100 + off, 150, 100 + off,
-              40, 90, 160, 110);
+          final ha = await total(
+              w, false, 50, 100 + off, 150, 100 + off, 40, 90, 160, 110);
+          final hf = await total(
+              w, true, 50, 100 + off, 150, 100 + off, 40, 90, 160, 110);
           expect(hf, closeTo(ha, 0.02), reason: 'horizontal w=$w off=$off');
           expect(hf, closeTo(100 * w, 1.0), reason: 'horizontal w=$w off=$off');
 
           // Vertical.
-          final va = await total(w, false, 100 + off, 50, 100 + off, 150,
-              90, 40, 110, 160);
-          final vf = await total(w, true, 100 + off, 50, 100 + off, 150,
-              90, 40, 110, 160);
+          final va = await total(
+              w, false, 100 + off, 50, 100 + off, 150, 90, 40, 110, 160);
+          final vf = await total(
+              w, true, 100 + off, 50, 100 + off, 150, 90, 40, 110, 160);
           expect(vf, closeTo(va, 0.02), reason: 'vertical w=$w off=$off');
           expect(vf, closeTo(100 * w, 1.0), reason: 'vertical w=$w off=$off');
 

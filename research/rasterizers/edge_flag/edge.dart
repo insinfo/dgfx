@@ -1,4 +1,3 @@
-
 class Edge {
   int yStart; // Start Scanline (inclusive)
   int yEnd; // End Scanline (exclusive)

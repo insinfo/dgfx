@@ -19,7 +19,8 @@ import '../common/polygon_contract.dart';
 double _cross2(double ax, double ay, double bx, double by) => ax * by - ay * bx;
 
 @pragma('vm:prefer-inline')
-double _triArea2(double x1, double y1, double x2, double y2, double x3, double y3) {
+double _triArea2(
+    double x1, double y1, double x2, double y2, double x3, double y3) {
   return _cross2(x2 - x1, y2 - y1, x3 - x1, y3 - y1);
 }
 
@@ -121,9 +122,12 @@ List<List<double>> _triangulateEarClipping(List<double> vertices) {
 
       // é uma orelha
       triangles.add([
-        pPrev.x, pPrev.y,
-        pCurr.x, pCurr.y,
-        pNext.x, pNext.y,
+        pPrev.x,
+        pPrev.y,
+        pCurr.x,
+        pCurr.y,
+        pNext.x,
+        pNext.y,
       ]);
       idx.removeAt(i);
       earFound = true;
@@ -397,9 +401,12 @@ class HSGRRasterizer implements PolygonContract {
   }
 
   void drawTriangle(
-    double x1, double y1,
-    double x2, double y2,
-    double x3, double y3,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+    double x3,
+    double y3,
     int color,
   ) {
     final area2 = _triArea2(x1, y1, x2, y2, x3, y3);
@@ -407,9 +414,12 @@ class HSGRRasterizer implements PolygonContract {
 
     // CCW
     if (area2 < 0) {
-      final tx = x2; final ty = y2;
-      x2 = x3; y2 = y3;
-      x3 = tx; y3 = ty;
+      final tx = x2;
+      final ty = y2;
+      x2 = x3;
+      y2 = y3;
+      x3 = tx;
+      y3 = ty;
     }
 
     final minX = math.min(x1, math.min(x2, x3)).floor();
@@ -496,13 +506,21 @@ class HSGRRasterizer implements PolygonContract {
           if (i != 0) {
             final dir = packed >> 30;
             if (dir == 0) {
-              fAB += a0; fBC += a1; fCA += a2;
+              fAB += a0;
+              fBC += a1;
+              fCA += a2;
             } else if (dir == 1) {
-              fAB -= a0; fBC -= a1; fCA -= a2;
+              fAB -= a0;
+              fBC -= a1;
+              fCA -= a2;
             } else if (dir == 2) {
-              fAB += b0; fBC += b1; fCA += b2;
+              fAB += b0;
+              fBC += b1;
+              fCA += b2;
             } else {
-              fAB -= b0; fBC -= b1; fCA -= b2;
+              fAB -= b0;
+              fBC -= b1;
+              fCA -= b2;
             }
           }
 

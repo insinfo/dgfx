@@ -60,7 +60,8 @@ List<double> _createHexagon(double cx, double cy, double radius) {
   return out;
 }
 
-List<double> _createStar(double cx, double cy, double outerRadius, double innerRadius) {
+List<double> _createStar(
+    double cx, double cy, double outerRadius, double innerRadius) {
   final out = <double>[];
   const points = 5;
   const step = math.pi / points;
@@ -98,13 +99,23 @@ List<double> _createArcBand(
   return out;
 }
 
-List<double> _createThinLine(double x0, double y0, double x1, double y1, double thickness) {
+List<double> _createThinLine(
+    double x0, double y0, double x1, double y1, double thickness) {
   final dx = x1 - x0;
   final dy = y1 - y0;
   final len = math.sqrt(dx * dx + dy * dy);
   if (len <= 1e-9) {
     final h = thickness * 0.5;
-    return <double>[x0 - h, y0 - h, x0 + h, y0 - h, x0 + h, y0 + h, x0 - h, y0 + h];
+    return <double>[
+      x0 - h,
+      y0 - h,
+      x0 + h,
+      y0 - h,
+      x0 + h,
+      y0 + h,
+      x0 - h,
+      y0 + h
+    ];
   }
   final nx = -dy / len;
   final ny = dx / len;
@@ -173,42 +184,50 @@ List<_PatternScenePolygon> _createPatternScene(BLImage tile) {
     _PatternScenePolygon(
       vertices: _createTriangle(88, 92, 56),
       fillRule: BLFillRule.nonZero,
-      pattern: _makePattern(tile, 10, 12, BLGradientExtendMode.repeat, BLGradientExtendMode.repeat),
+      pattern: _makePattern(tile, 10, 12, BLGradientExtendMode.repeat,
+          BLGradientExtendMode.repeat),
     ),
     _PatternScenePolygon(
       vertices: _createSquare(212, 88, 98),
       fillRule: BLFillRule.nonZero,
-      pattern: _makePattern(tile, 28, 22, BLGradientExtendMode.reflect, BLGradientExtendMode.reflect),
+      pattern: _makePattern(tile, 28, 22, BLGradientExtendMode.reflect,
+          BLGradientExtendMode.reflect),
     ),
     _PatternScenePolygon(
       vertices: _createHexagon(350, 96, 52),
       fillRule: BLFillRule.nonZero,
-      pattern: _makePattern(tile, 40, 10, BLGradientExtendMode.repeat, BLGradientExtendMode.reflect),
+      pattern: _makePattern(tile, 40, 10, BLGradientExtendMode.repeat,
+          BLGradientExtendMode.reflect),
     ),
     _PatternScenePolygon(
       vertices: _createStar(438, 98, 56, 24),
       fillRule: BLFillRule.nonZero,
-      pattern: _makePattern(tile, 380, 62, BLGradientExtendMode.pad, BLGradientExtendMode.pad),
+      pattern: _makePattern(
+          tile, 380, 62, BLGradientExtendMode.pad, BLGradientExtendMode.pad),
     ),
     _PatternScenePolygon(
       vertices: _createArcBand(120, 276, 28, 64, -2.6, -0.1, 36),
       fillRule: BLFillRule.nonZero,
-      pattern: _makePattern(tile, 88, 250, BLGradientExtendMode.repeat, BLGradientExtendMode.repeat),
+      pattern: _makePattern(tile, 88, 250, BLGradientExtendMode.repeat,
+          BLGradientExtendMode.repeat),
     ),
     _PatternScenePolygon(
       vertices: _createSquare(278, 268, 132),
       fillRule: BLFillRule.nonZero,
-      pattern: _makePattern(tile, 248, 232, BLGradientExtendMode.reflect, BLGradientExtendMode.repeat),
+      pattern: _makePattern(tile, 248, 232, BLGradientExtendMode.reflect,
+          BLGradientExtendMode.repeat),
     ),
     _PatternScenePolygon(
       vertices: _createStar(430, 274, 72, 30),
       fillRule: BLFillRule.nonZero,
-      pattern: _makePattern(tile, 408, 250, BLGradientExtendMode.pad, BLGradientExtendMode.reflect),
+      pattern: _makePattern(tile, 408, 250, BLGradientExtendMode.pad,
+          BLGradientExtendMode.reflect),
     ),
     _PatternScenePolygon(
       vertices: _createThinLine(20, 486, 492, 470, 5.0),
       fillRule: BLFillRule.nonZero,
-      pattern: _makePattern(tile, 0, 464, BLGradientExtendMode.repeat, BLGradientExtendMode.pad),
+      pattern: _makePattern(
+          tile, 0, 464, BLGradientExtendMode.repeat, BLGradientExtendMode.pad),
     ),
   ];
 }

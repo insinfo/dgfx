@@ -65,8 +65,8 @@ class BLRadialGradientFetcher {
     return BLRadialGradientFetcher._(gradient, params, inv);
   }
 
-  BLRadialGradientFetcher._(this.gradient, _BLRadialParams params,
-      BLMatrix2D? inv)
+  BLRadialGradientFetcher._(
+      this.gradient, _BLRadialParams params, BLMatrix2D? inv)
       : _hasTransform = inv != null,
         _i00 = inv?.m00 ?? 1.0,
         _i01 = inv?.m01 ?? 0.0,

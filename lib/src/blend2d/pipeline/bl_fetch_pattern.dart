@@ -218,8 +218,10 @@ class BLPatternFetcher {
 
     final nx = ix1 - ix0;
     final ny = iy1 - iy0;
-    final stepX = nx <= _maxBoxSamples ? 1 : (nx + _maxBoxSamples - 1) ~/ _maxBoxSamples;
-    final stepY = ny <= _maxBoxSamples ? 1 : (ny + _maxBoxSamples - 1) ~/ _maxBoxSamples;
+    final stepX =
+        nx <= _maxBoxSamples ? 1 : (nx + _maxBoxSamples - 1) ~/ _maxBoxSamples;
+    final stepY =
+        ny <= _maxBoxSamples ? 1 : (ny + _maxBoxSamples - 1) ~/ _maxBoxSamples;
 
     double sumA = 0.0, sumR = 0.0, sumG = 0.0, sumB = 0.0, sumW = 0.0;
 

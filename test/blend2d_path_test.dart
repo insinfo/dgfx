@@ -199,7 +199,8 @@ void main() {
         [64, 16],
       ]) {
         final rx = radii[0], ry = radii[1];
-        final area = polygonArea(ellipse(100, 100, rx, ry).toPathData().vertices);
+        final area =
+            polygonArea(ellipse(100, 100, rx, ry).toPathData().vertices);
         final exact = math.pi * rx * ry;
         expect(area, closeTo(exact, exact * 0.005),
             reason: 'rx=\$rx ry=\$ry: \$area vs \$exact');

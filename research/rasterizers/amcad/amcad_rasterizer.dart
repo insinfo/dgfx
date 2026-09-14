@@ -346,8 +346,8 @@ class AMCADRasterizer implements PolygonContract {
       final xj = e.x2;
       final yj = e.y2;
 
-      final intersects =
-          ((yi1 > y) != (yj > y)) && (x < (xj - xi) * (y - yi1) / (yj - yi1) + xi);
+      final intersects = ((yi1 > y) != (yj > y)) &&
+          (x < (xj - xi) * (y - yi1) / (yj - yi1) + xi);
       if (intersects) {
         evenOddCrossings++;
       }
@@ -474,7 +474,8 @@ class AMCADRasterizer implements PolygonContract {
 
   Uint32List get buffer => _framebuffer;
 
-  List<_EdgeData> _buildEdges(List<double> vertices, List<_ContourSpan> contours) {
+  List<_EdgeData> _buildEdges(
+      List<double> vertices, List<_ContourSpan> contours) {
     final edges = <_EdgeData>[];
     for (final contour in contours) {
       if (contour.count < 2) continue;
@@ -491,7 +492,8 @@ class AMCADRasterizer implements PolygonContract {
     return edges;
   }
 
-  List<List<int>> _buildRowBuckets(int minYi, int maxYi, List<_EdgeData> edges) {
+  List<List<int>> _buildRowBuckets(
+      int minYi, int maxYi, List<_EdgeData> edges) {
     final rows = maxYi - minYi + 1;
     final buckets = List<List<int>>.generate(rows, (_) => <int>[]);
     for (int i = 0; i < edges.length; i++) {

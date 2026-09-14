@@ -1,7 +1,7 @@
 /// ============================================================================
 /// HSGR — Hilbert-Space Guided Rasterization
 /// ============================================================================
-/// esta verção não esta renderizando poligonos difernte de triangulos 
+/// esta verção não esta renderizando poligonos difernte de triangulos
 /// Usa curvas de preenchimento de espaço (Hilbert) para traversar pixels
 /// de forma a maximizar localidade de cache.
 ///
@@ -104,8 +104,7 @@ class EdgeFunction {
   })  : deltaX = a,
         deltaY = b;
 
-  factory EdgeFunction.fromPoints(
-      double x0, double y0, double x1, double y1) {
+  factory EdgeFunction.fromPoints(double x0, double y0, double x1, double y1) {
     // Equação da linha: (y1-y0)*(x-x0) - (x1-x0)*(y-y0) = 0
     // Simplifica para: dx*y - dy*x + (dy*x0 - dx*y0) = 0
     final dx = x1 - x0;
@@ -179,9 +178,12 @@ class HSGRRasterizer {
 
   /// Desenha um triângulo usando traversal Hilbert
   void drawTriangle(
-    double x1, double y1,
-    double x2, double y2,
-    double x3, double y3,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+    double x3,
+    double y3,
     int color,
   ) {
     // Bounding box
@@ -216,7 +218,8 @@ class HSGRRasterizer {
     final edgeValues = [0.0, 0.0, 0.0];
 
     // Traversar em ordem Hilbert
-    for (final coords in hilbert.generatePoints(0, 0, hilbert.size - 1, hilbert.size - 1)) {
+    for (final coords
+        in hilbert.generatePoints(0, 0, hilbert.size - 1, hilbert.size - 1)) {
       final localX = coords[0];
       final localY = coords[1];
 

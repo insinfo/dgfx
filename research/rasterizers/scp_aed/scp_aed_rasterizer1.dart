@@ -213,7 +213,8 @@ class SCPAEDRasterizer {
       final vx = vertices[p1 * 2].round();
       final vy = vertices[p1 * 2 + 1].round();
 
-      if (vx < bbox.x0 || vx > bbox.x1 || vy < bbox.y0 || vy > bbox.y1) continue;
+      if (vx < bbox.x0 || vx > bbox.x1 || vy < bbox.y0 || vy > bbox.y1)
+        continue;
       _curvature[vy * width + vx] = diff; // 0..pi
     }
   }

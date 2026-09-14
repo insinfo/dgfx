@@ -143,8 +143,7 @@ class ACDRRasterizer implements PolygonContract {
     this.enableSinglePixelSpanFix = true,
     this.enableVerticalSupersample = true,
     this.verticalSampleCount = 4,
-  })
-      : _scanlineEvents = List.generate(height, (_) => []) {
+  }) : _scanlineEvents = List.generate(height, (_) => []) {
     coverageBuffer = Float64List(width * height);
   }
 
@@ -379,10 +378,10 @@ class ACDRRasterizer implements PolygonContract {
     if (edges.isEmpty) return coverageBuffer;
 
     final sampleOffsets = enableVerticalSupersample
-      ? (verticalSampleCount <= 2
-        ? const <double>[0.25, 0.75]
-        : const <double>[0.125, 0.375, 0.625, 0.875])
-      : const <double>[0.5];
+        ? (verticalSampleCount <= 2
+            ? const <double>[0.25, 0.75]
+            : const <double>[0.125, 0.375, 0.625, 0.875])
+        : const <double>[0.5];
     final sampleWeight = 1.0 / sampleOffsets.length;
 
     for (final yOffset in sampleOffsets) {
@@ -401,9 +400,11 @@ class ACDRRasterizer implements PolygonContract {
         int leftEdgeIndex = -1;
         for (int p = 0; p < events.length; p++) {
           final event = events[p];
-          final bool wasInside = (windingRule == 0) ? ((winding & 1) != 0) : (winding != 0);
+          final bool wasInside =
+              (windingRule == 0) ? ((winding & 1) != 0) : (winding != 0);
           winding += event.isEntering ? 1 : -1;
-          final bool isInside = (windingRule == 0) ? ((winding & 1) != 0) : (winding != 0);
+          final bool isInside =
+              (windingRule == 0) ? ((winding & 1) != 0) : (winding != 0);
 
           if (!wasInside && isInside) {
             xLeft = event.x;
@@ -436,8 +437,7 @@ class ACDRRasterizer implements PolygonContract {
               edges[event.edgeIndex],
             );
             if (coverage > 0.0) {
-              coverageBuffer[scanY * width + pxLeft] +=
-                  coverage * sampleWeight;
+              coverageBuffer[scanY * width + pxLeft] += coverage * sampleWeight;
             }
             continue;
           }
@@ -513,7 +513,7 @@ class ACDRRasterizer implements PolygonContract {
     // Fração à direita da aresta = 1 - clamp(u,0,1)
     final leftArea = 1.0 - _integrateClamped01(u0, u1);
     coverageBuffer[scanY * width + px] +=
-      leftArea.clamp(0.0, 1.0) * sampleWeight;
+        leftArea.clamp(0.0, 1.0) * sampleWeight;
   }
 
   /// Rasteriza o pixel de borda DIREITO de um span.
@@ -544,7 +544,7 @@ class ACDRRasterizer implements PolygonContract {
 
     final rightArea = _integrateClamped01(u0, u1);
     coverageBuffer[scanY * width + px] +=
-      rightArea.clamp(0.0, 1.0) * sampleWeight;
+        rightArea.clamp(0.0, 1.0) * sampleWeight;
   }
 
   double _rasterizeSinglePixelSpan(

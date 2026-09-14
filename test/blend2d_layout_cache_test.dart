@@ -105,7 +105,6 @@ void _w16(BytesBuilder b, int value) {
   b.addByte(value & 0xFF);
 }
 
-
 // ============================================================================
 // Helper genérico: embrulha uma subtabela num GSUB/GPOS mínimo, opcionalmente
 // dentro de uma Extension lookup.

@@ -1,4 +1,3 @@
-
 // Fixed-point math constants
 // SLEFA uses FloatToFixed logic. Assuming 24.8 fixed point for coordinates inside scanline?
 // Or maybe higher precision for the DDA.

@@ -198,6 +198,7 @@ void _printUsage() {
       '  --bins=<int>         bins per octant (default: $_defaultBinsPerOctant)');
   stdout.writeln(
       '  --max-dist16=<int>   distance clamp in 1/16 px (default: $_defaultMaxDist16)');
-  stdout.writeln('  --out=<path>         output file (default: $_defaultOutPath)');
+  stdout.writeln(
+      '  --out=<path>         output file (default: $_defaultOutPath)');
   stdout.writeln('  -h, --help           show this help');
 }

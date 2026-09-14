@@ -591,11 +591,9 @@ class EPLRasterizer implements PolygonContract {
 
     for (int i = 0; i < edges.length; i++) {
       final e = edges[i];
-      final ex0 =
-          (e.minX - _candidateExpand).floor().clamp(minX, maxX).toInt();
+      final ex0 = (e.minX - _candidateExpand).floor().clamp(minX, maxX).toInt();
       final ex1 = (e.maxX + _candidateExpand).ceil().clamp(minX, maxX).toInt();
-      final ey0 =
-          (e.minY - _candidateExpand).floor().clamp(minY, maxY).toInt();
+      final ey0 = (e.minY - _candidateExpand).floor().clamp(minY, maxY).toInt();
       final ey1 = (e.maxY + _candidateExpand).ceil().clamp(minY, maxY).toInt();
       if (ex0 > ex1 || ey0 > ey1) continue;
 

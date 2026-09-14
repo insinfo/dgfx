@@ -51,7 +51,7 @@ class SCPAEDRasterizer {
   // Difusão estocástica (refino). 0–2 iterações; 1 geralmente já ajuda.
   static const int _diffuseIters = 1;
   static const double _alpha = 0.22; // laplaciano
-  static const double _beta = 0.10;  // ruído
+  static const double _beta = 0.10; // ruído
 
   // Margem do bbox: precisa cobrir SDF + vizinhança de difusão/erro.
   static const int _bboxMargin = 8;
@@ -84,7 +84,8 @@ class SCPAEDRasterizer {
     List<int>? contourVertexCounts,
   }) {
     if (vertices.length < 6) return;
-    final contours = _resolveContours(vertices.length ~/ 2, contourVertexCounts);
+    final contours =
+        _resolveContours(vertices.length ~/ 2, contourVertexCounts);
 
     final b = _computeBounds(vertices, margin: _bboxMargin);
     if (b.isEmpty) return;
@@ -166,7 +167,8 @@ class SCPAEDRasterizer {
   // Scanline (máscara inside/outside)
   // --------------------------------------------------------------------------
 
-  void _buildEdges(List<double> vertices, _Bounds b, List<_ContourSpan> contours) {
+  void _buildEdges(
+      List<double> vertices, _Bounds b, List<_ContourSpan> contours) {
     _edges.clear();
 
     for (final contour in contours) {
@@ -182,8 +184,12 @@ class SCPAEDRasterizer {
         if (y0 == y1) continue;
         int winding = 1;
         if (y0 > y1) {
-          final tx = x0; x0 = x1; x1 = tx;
-          final ty = y0; y0 = y1; y1 = ty;
+          final tx = x0;
+          x0 = x1;
+          x1 = tx;
+          final ty = y0;
+          y0 = y1;
+          y1 = ty;
           winding = -1;
         }
 
@@ -301,7 +307,8 @@ class SCPAEDRasterizer {
   // Curvatura simples (só em cantos) + espalhamento local
   // --------------------------------------------------------------------------
 
-  void _computeCurvature(List<double> vertices, _Bounds b, List<_ContourSpan> contours) {
+  void _computeCurvature(
+      List<double> vertices, _Bounds b, List<_ContourSpan> contours) {
     // “pinta” um pequeno disco ao redor do vértice com o ângulo de virada (0..pi)
     const int r = 2;
     for (final contour in contours) {
@@ -381,18 +388,10 @@ class SCPAEDRasterizer {
           final bx = e.x1;
           final by = e.y1;
 
-          int x0 =
-              (math.min(ax, bx) - r).floor().clamp(tileX0, tileX1).toInt();
-          int x1 =
-              (math.max(ax, bx) + r).ceil().clamp(tileX0, tileX1).toInt();
-          int y0 = (math.min(ay, by) - r)
-              .floor()
-              .clamp(tileY0, tileY1)
-              .toInt();
-          int y1 = (math.max(ay, by) + r)
-              .ceil()
-              .clamp(tileY0, tileY1)
-              .toInt();
+          int x0 = (math.min(ax, bx) - r).floor().clamp(tileX0, tileX1).toInt();
+          int x1 = (math.max(ax, bx) + r).ceil().clamp(tileX0, tileX1).toInt();
+          int y0 = (math.min(ay, by) - r).floor().clamp(tileY0, tileY1).toInt();
+          int y1 = (math.max(ay, by) + r).ceil().clamp(tileY0, tileY1).toInt();
           if (x0 > x1 || y0 > y1) continue;
 
           for (int y = y0; y <= y1; y++) {
@@ -568,7 +567,8 @@ class SCPAEDRasterizer {
           coverage = 0.0;
         } else {
           // mapeia distância -> [0..1] e aplica smoothstep
-          final t = ((phi + _aaHalfWidth) / (2.0 * _aaHalfWidth)).clamp(0.0, 1.0);
+          final t =
+              ((phi + _aaHalfWidth) / (2.0 * _aaHalfWidth)).clamp(0.0, 1.0);
           coverage = t * t * (3.0 - 2.0 * t); // smoothstep
         }
 
@@ -579,7 +579,9 @@ class SCPAEDRasterizer {
         if (a > 0) _blendPixel(idx, r, g, bl, a);
 
         // difunde erro só na banda subpixel (onde 0<coverage<1)
-        if (coverage > 0.0 && coverage < 1.0 && phi.abs() <= (_aaHalfWidth + 0.75)) {
+        if (coverage > 0.0 &&
+            coverage < 1.0 &&
+            phi.abs() <= (_aaHalfWidth + 0.75)) {
           final q = a / 255.0;
           final e = coverage - q;
           if (e.abs() >= 0.0008) {
