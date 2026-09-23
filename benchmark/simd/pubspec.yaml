@@ -1,0 +1,14 @@
+name: dgfx_simd_benchmarks
+description: >-
+  Focused SIMD micro-benchmarks extracted from the dgfx rasterizers, in the
+  style of dart-lang/sdk/benchmarks. Written for
+  https://github.com/dart-lang/sdk/issues/62618.
+publish_to: none
+
+environment:
+  # Int32x4.splat/zero/abs/andNot/min/max/<</>>/comparisons/anyTrue/allTrue
+  # only exist from 3.14 on.
+  sdk: ^3.14.0-0
+
+dependencies:
+  benchmark_harness: ^2.3.1
